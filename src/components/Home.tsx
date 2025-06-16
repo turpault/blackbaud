@@ -85,13 +85,15 @@ const Home: React.FC = () => {
 
         <div style={{ marginTop: "30px", fontSize: "14px", color: "#888" }}>
           <p>
-            <strong>Endpoints:</strong>
+            <strong>Direct API Integration:</strong>
             <br />
-            Auth: https://app.blackbaud.com/oauth/authorize
+            🔗 Direct Blackbaud API calls
             <br />
-            Token: https://oauth2.sky.blackbaud.com/token
+            🔐 Client-side OAuth 2.0 flow
             <br />
-            Callback: https://home.turpault.me/blackbaud/callback
+            💾 Secure token storage
+            <br />
+            🔄 Automatic token refresh
           </p>
         </div>
       </div>

@@ -129,12 +129,21 @@ const App: React.FC = () => {
               )
             }
           />
+          <Route
+            path="/dashboard/:tab"
+            element={
+              isAuthenticated ? (
+                <Dashboard sessionInfo={sessionInfo} />
+              ) : (
+                <Navigate to="/" replace />
+              )
+            }
+          />
           <Route 
             path="/logout" 
             element={<Logout />} 
           />
-          {/* The OAuth callback is now handled by the proxy server */}
-          {/* No need for a callback route in the React app */}
+          {/* OAuth callback is handled by the proxy server */}
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </Suspense>

@@ -1,9 +1,12 @@
 import React, { useState, useEffect, Suspense } from "react";
-import { Link } from "react-router-dom";
+import { Link, useParams, useNavigate } from "react-router-dom";
 import authService, { SessionInfo } from "../services/authService";
 
 // Lazy load the GiftList component since it's large
 const GiftList = React.lazy(() => import("./GiftList"));
+const ConstituentManager = React.lazy(() => import("./ConstituentManager"));
+const Lists = React.lazy(() => import("./Lists"));
+const Queries = React.lazy(() => import("./Queries"));
 
 // Loading component for tab content
 const TabLoadingFallback: React.FC = () => {
@@ -53,11 +56,31 @@ const Dashboard: React.FC<DashboardProps> = ({ sessionInfo }) => {
   const [userInfo, setUserInfo] = useState<UserInfo | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<string>("gifts");
+  const { tab } = useParams<{ tab?: string }>();
+  const navigate = useNavigate();
+  const [activeTab, setActiveTab] = useState<string>(tab || "gifts");
+
+  const tabs = [
+    { id: "gifts", label: "Gifts", icon: "🎁" },
+    { id: "constituents", label: "Constituents", icon: "👤" },
+    { id: "lists", label: "Lists", icon: "📝" },
+    { id: "queries", label: "Queries", icon: "🔍" },
+    { id: "profile", label: "Profile", icon: "👤" },
+  ];
 
   useEffect(() => {
     fetchUserInfo();
   }, []);
+
+  // Sync activeTab with URL parameter
+  useEffect(() => {
+    if (tab && tab !== activeTab) {
+      setActiveTab(tab);
+    } else if (!tab && activeTab !== "gifts") {
+      // If no tab in URL, default to gifts
+      navigate("/dashboard/gifts", { replace: true });
+    }
+  }, [tab, activeTab, navigate]);
 
   const fetchUserInfo = async (): Promise<void> => {
     try {
@@ -122,24 +145,28 @@ const Dashboard: React.FC<DashboardProps> = ({ sessionInfo }) => {
     float: "right",
   };
 
-  const tabStyle: React.CSSProperties = {
+  const tabContainerStyle: React.CSSProperties = {
     display: "flex",
     justifyContent: "center",
     marginBottom: "20px",
     borderBottom: "1px solid #dee2e6",
   };
 
-  const tabButtonStyle = (isActive: boolean): React.CSSProperties => ({
+  const tabStyle: React.CSSProperties = {
     padding: "12px 24px",
     border: "none",
     backgroundColor: "transparent",
     cursor: "pointer",
     fontSize: "16px",
-    fontWeight: isActive ? "bold" : "normal",
-    color: isActive ? "#0066cc" : "#666",
-    borderBottom: isActive ? "3px solid #0066cc" : "3px solid transparent",
+    fontWeight: "normal",
+    color: "#666",
+    borderBottom: "3px solid transparent",
     transition: "all 0.3s ease",
-  });
+  };
+
+  const activeTabStyle: React.CSSProperties = {
+    borderBottom: "3px solid #0066cc",
+  };
 
   const cardStyle: React.CSSProperties = {
     backgroundColor: "#f8f9fa",
@@ -152,7 +179,7 @@ const Dashboard: React.FC<DashboardProps> = ({ sessionInfo }) => {
   return (
     <div style={containerStyle}>
       <div style={headerStyle}>
-        <h1>🎯 Welcome to Blackbaud Dashboard</h1>
+        <h1>🎯 Raiser's Edge NXT Dashboard</h1>
         <p>You have successfully authenticated with Blackbaud!</p>
         <div style={{ float: "right", display: "flex", gap: "10px" }}>
           <Link
@@ -181,113 +208,48 @@ const Dashboard: React.FC<DashboardProps> = ({ sessionInfo }) => {
       </div>
 
       {/* Tab Navigation */}
-      <div style={tabStyle}>
-        <button
-          style={tabButtonStyle(activeTab === "gifts")}
-          onClick={() => setActiveTab("gifts")}
-        >
-          🎁 Gifts
-        </button>
-        <button
-          style={tabButtonStyle(activeTab === "auth")}
-          onClick={() => setActiveTab("auth")}
-        >
-          🔑 Authentication
-        </button>
-        <button
-          style={tabButtonStyle(activeTab === "api")}
-          onClick={() => setActiveTab("api")}
-        >
-          📊 API Data
-        </button>
+      <div style={tabContainerStyle}>
+        {tabs.map((tabItem) => (
+          <button
+            key={tabItem.id}
+            onClick={() => {
+              setActiveTab(tabItem.id);
+              navigate(`/dashboard/${tabItem.id}`, { replace: true });
+            }}
+            style={{
+              ...tabStyle,
+              ...(activeTab === tabItem.id ? activeTabStyle : {}),
+            }}
+            onMouseOver={handleMouseOver}
+            onMouseOut={handleMouseOut}
+          >
+            {tabItem.icon} {tabItem.label}
+          </button>
+        ))}
       </div>
 
       {/* Tab Content */}
-      {activeTab === "gifts" && (
+      <div style={{ marginTop: "20px" }}>
         <Suspense fallback={<TabLoadingFallback />}>
-          <GiftList />
-        </Suspense>
-      )}
-
-      {activeTab === "auth" && (
-        <div style={cardStyle}>
-          <h3>🔑 Authentication Status</h3>
-          <p>
-            <strong>Status:</strong>{" "}
-            <span style={{ color: "green" }}>✅ Authenticated</span>
-          </p>
-          <p>
-            <strong>Token Type:</strong>{" "}
-            {sessionInfo?.tokenType || "Bearer"}
-          </p>
-          <p>
-            <strong>Scope:</strong>{" "}
-            {sessionInfo?.scope || "Not available"}
-          </p>
-          <p>
-            <strong>Expires At:</strong>{" "}
-            {sessionInfo?.expiresAt ? new Date(sessionInfo.expiresAt).toLocaleString() : "Not available"}
-          </p>
-          <div style={{ marginTop: "20px" }}>
-            <h4>🔧 Available Actions</h4>
-            <button
-              onClick={fetchUserInfo}
-              style={{
-                ...buttonStyle,
-                background: "linear-gradient(45deg, #4CAF50, #45a049)",
-                float: "none",
-                marginRight: "10px",
-              }}
-            >
-              Refresh Data
-            </button>
-            <button
-              onClick={() =>
-                window.open("https://developer.blackbaud.com/skyapi/", "_blank")
-              }
-              style={{
-                ...buttonStyle,
-                background: "linear-gradient(45deg, #2196F3, #1976D2)",
-                float: "none",
-              }}
-            >
-              View API Docs
-            </button>
-          </div>
-        </div>
-      )}
-
-      {activeTab === "api" && (
-        <div style={cardStyle}>
-          <h3>📊 API Data</h3>
-          {loading && <p>Loading user information...</p>}
-          {error && <p style={{ color: "red" }}>⚠️ {error}</p>}
-          {userInfo && (
-            <div>
-              <p>
-                <strong>API Response:</strong>
-              </p>
-              <pre
-                style={{
-                  backgroundColor: "#f1f3f4",
-                  padding: "15px",
-                  borderRadius: "5px",
-                  overflow: "auto",
-                  fontSize: "12px",
-                }}
-              >
-                {JSON.stringify(userInfo, null, 2)}
-              </pre>
+          {activeTab === "gifts" && <GiftList />}
+          {activeTab === "constituents" && <ConstituentManager />}
+          {activeTab === "lists" && <Lists />}
+          {activeTab === "queries" && <Queries />}
+          {activeTab === "profile" && (
+            <div style={{ textAlign: "center", padding: "40px" }}>
+              <h3>👤 Profile Information</h3>
+              {userInfo ? (
+                <div>
+                  <p><strong>Name:</strong> {userInfo.name}</p>
+                  <p><strong>Email:</strong> {userInfo.email || "Not available"}</p>
+                </div>
+              ) : (
+                <p>Loading profile information...</p>
+              )}
             </div>
           )}
-          {!loading && !error && !userInfo && (
-            <p>
-              No user information available. Check if the API endpoint is
-              correct.
-            </p>
-          )}
-        </div>
-      )}
+        </Suspense>
+      </div>
     </div>
   );
 };

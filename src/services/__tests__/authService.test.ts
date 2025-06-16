@@ -1,5 +1,5 @@
 import authService from '../authService';
-import { OAUTH_CONFIG } from '../../config/oauth';
+import axios from 'axios';
 
 // Mock localStorage
 const localStorageMock = (() => {
@@ -92,6 +92,68 @@ describe('AuthService', () => {
       expect(window.location.href).toContain(`redirect_uri=${encodeURIComponent(OAUTH_CONFIG.redirectUri)}`);
       expect(window.location.href).toContain(`scope=${encodeURIComponent(OAUTH_CONFIG.scope)}`);
       expect(window.location.href).toContain('response_type=code');
+    });
+  });
+
+  describe('getQueries', () => {
+    beforeEach(() => {
+      // Mock axios for API tests
+      jest.spyOn(axios, 'request').mockImplementation();
+    });
+
+    afterEach(() => {
+      jest.restoreAllMocks();
+    });
+
+    it('should call the correct API endpoint for queries', async () => {
+      const mockResponse = {
+        data: {
+          count: 2,
+          value: [
+            { id: '1', name: 'Test Query 1', type: 'Constituent' },
+            { id: '2', name: 'Test Query 2', type: 'Gift' }
+          ]
+        }
+      };
+
+      (axios.request as jest.Mock).mockResolvedValue(mockResponse);
+
+      // Mock the authentication check
+      jest.spyOn(authService, 'checkAuthentication').mockResolvedValue({
+        authenticated: true,
+        accessToken: 'test-token',
+        subscriptionKey: 'test-key',
+        tokenType: 'Bearer'
+      });
+
+      const result = await authService.getQueries(50);
+
+      expect(axios.request).toHaveBeenCalledWith(
+        expect.objectContaining({
+          url: expect.stringContaining('/query/queries?product=RE&module=None&limit=50')
+        })
+      );
+      expect(result).toEqual(mockResponse.data);
+    });
+
+    it('should use default limit when none provided', async () => {
+      const mockResponse = { data: { count: 0, value: [] } };
+      (axios.request as jest.Mock).mockResolvedValue(mockResponse);
+
+      jest.spyOn(authService, 'checkAuthentication').mockResolvedValue({
+        authenticated: true,
+        accessToken: 'test-token',
+        subscriptionKey: 'test-key',
+        tokenType: 'Bearer'
+      });
+
+      await authService.getQueries();
+
+      expect(axios.request).toHaveBeenCalledWith(
+        expect.objectContaining({
+          url: expect.stringContaining('/query/queries?product=RE&module=None&limit=50')
+        })
+      );
     });
   });
 }); 
