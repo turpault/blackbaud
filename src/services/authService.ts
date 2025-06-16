@@ -1,4 +1,5 @@
 import axios, { AxiosRequestConfig, AxiosResponse } from 'axios';
+import { cache } from '../utils/cacheDecorator';
 
 export interface SessionInfo {
   authenticated: boolean;
@@ -15,6 +16,7 @@ export interface ApiRequestOptions {
   headers?: Record<string, string>;
   data?: any;
   params?: any;
+  retries?: boolean;
 }
 
 export interface ConstituentInfo {
@@ -69,6 +71,84 @@ class AuthService {
 
   // Promise memoization for constituent requests to prevent duplicate API calls
   private constituentPromises: Map<string, Promise<ConstituentInfo | null>> = new Map();
+
+  // Exponential backoff retry utility for 429 errors
+  private async withRetry<T>(
+    operation: () => Promise<T>,
+    maxRetries: number = 5,
+    baseDelayMs: number = 1000
+  ): Promise<T> {
+    let lastError: Error | null = null;
+    
+    for (let attempt = 0; attempt <= maxRetries; attempt++) {
+      try {
+        return await operation();
+      } catch (error: any) {
+        lastError = error;
+        
+        // Check if it's a 429 error
+        const is429Error = error.response?.status === 429 || 
+                           error.status === 429 || 
+                           error.message?.includes('429') ||
+                           error.message?.toLowerCase().includes('rate limit') ||
+                           error.message?.toLowerCase().includes('too many requests');
+        
+        // Only retry on 429 errors, and only if we have attempts left
+        if (!is429Error || attempt === maxRetries) {
+          throw error;
+        }
+        
+        // Calculate delay with exponential backoff and jitter
+        const backoffDelay = baseDelayMs * Math.pow(2, attempt);
+        const jitter = Math.random() * 0.1 * backoffDelay; // 10% jitter
+        const totalDelay = backoffDelay + jitter;
+        
+        console.warn(`Rate limited (429), retrying in ${Math.round(totalDelay)}ms... (attempt ${attempt + 1}/${maxRetries + 1})`);
+        
+        // Wait before retrying
+        await new Promise(resolve => setTimeout(resolve, totalDelay));
+      }
+    }
+    
+    throw lastError || new Error('Max retries exceeded');
+  }
+
+  // Centralized query handler with consistent 429 handling and error messaging
+  async executeQuery<T>(
+    queryFn: () => Promise<T>,
+    context: string = 'query',
+    onError?: (error: any, isRateLimit: boolean) => void
+  ): Promise<T> {
+    try {
+      return await this.withRetry(queryFn);
+    } catch (error: any) {
+      // Check if it's a rate limiting error
+      const isRateLimit = error.response?.status === 429 || 
+                         error.status === 429 || 
+                         error.message?.includes('429') ||
+                         error.message?.toLowerCase().includes('rate limit') ||
+                         error.message?.toLowerCase().includes('too many requests');
+      
+      // Create user-friendly error message
+      let errorMessage: string;
+      if (isRateLimit) {
+        errorMessage = `⚠️ Rate limit reached while ${context}. The request is being retried automatically with exponential backoff. If this persists, please wait a few minutes before trying again.`;
+      } else {
+        errorMessage = error.message || `Failed to ${context}`;
+      }
+
+      // Call custom error handler if provided
+      if (onError) {
+        onError(errorMessage, isRateLimit);
+      }
+
+      // Re-throw with enhanced error message
+      const enhancedError: any = new Error(errorMessage);
+      enhancedError.originalError = error;
+      enhancedError.isRateLimit = isRateLimit;
+      throw enhancedError;
+    }
+  }
 
   // Check authentication status with the proxy server
   async checkAuthentication(): Promise<SessionInfo> {
@@ -141,69 +221,83 @@ class AuthService {
 
   // Make authenticated API request directly to Blackbaud APIs using tokens from proxy
   async apiRequest<T = any>(url: string, options: ApiRequestOptions = {}): Promise<T> {
-    // Check authentication status first to get the latest bearer token and subscription key
-    const session = await this.checkAuthentication();
-    
-    if (!session.authenticated || !session.accessToken) {
-      throw new Error('Not authenticated - please log in');
-    }
+    const executeRequest = async (): Promise<T> => {
+      // Check authentication status first to get the latest bearer token and subscription key
+      const session = await this.checkAuthentication();
+      
+      if (!session.authenticated || !session.accessToken) {
+        throw new Error('Not authenticated - please log in');
+      }
 
-    if (!session.subscriptionKey) {
-      throw new Error('Subscription key not available from proxy server. Please check proxy configuration.');
-    }
+      if (!session.subscriptionKey) {
+        throw new Error('Subscription key not available from proxy server. Please check proxy configuration.');
+      }
 
-    // Prepare headers with authentication and subscription key from proxy
-    const headers: Record<string, string> = {
-      'Authorization': `${session.tokenType || 'Bearer'} ${session.accessToken}`,
-      'Bb-Api-Subscription-Key': session.subscriptionKey,
-      'Content-Type': 'application/json',
-      ...options.headers,
-    };
+      // Prepare headers with authentication and subscription key from proxy
+      const headers: Record<string, string> = {
+        'Authorization': `${session.tokenType || 'Bearer'} ${session.accessToken}`,
+        'Bb-Api-Subscription-Key': session.subscriptionKey,
+        'Content-Type': 'application/json',
+        ...options.headers,
+      };
 
-    const axiosConfig: AxiosRequestConfig = {
-      url: `${this.BLACKBAUD_API_BASE}${url}`,
-      method: options.method || 'GET',
-      headers,
-      data: options.data,
-      params: options.params,
-      timeout: 30000,
-    };
+      const axiosConfig: AxiosRequestConfig = {
+        url: `${this.BLACKBAUD_API_BASE}${url}`,
+        method: options.method || 'GET',
+        headers,
+        data: options.data,
+        params: options.params,
+        timeout: 30000,
+      };
 
-    try {
-      const response: AxiosResponse<T> = await axios(axiosConfig);
-      return response.data;
-    } catch (error: any) {
-      if (error.response?.status === 401) {
-        // Token might be expired - clear cached session and retry once
-        this.sessionInfo = null;
-        
-        try {
-          const newSession = await this.checkAuthentication();
-          if (newSession.authenticated && newSession.accessToken && newSession.subscriptionKey) {
-            // Retry the request with fresh token and subscription key
-            axiosConfig.headers!['Authorization'] = `${newSession.tokenType || 'Bearer'} ${newSession.accessToken}`;
-            axiosConfig.headers!['Bb-Api-Subscription-Key'] = newSession.subscriptionKey;
-            const retryResponse: AxiosResponse<T> = await axios(axiosConfig);
-            return retryResponse.data;
+      try {
+        const response: AxiosResponse<T> = await axios(axiosConfig);
+        return response.data;
+      } catch (error: any) {
+        if (error.response?.status === 401) {
+          // Token might be expired - clear cached session and retry once
+          this.sessionInfo = null;
+          
+          try {
+            const newSession = await this.checkAuthentication();
+            if (newSession.authenticated && newSession.accessToken && newSession.subscriptionKey) {
+              // Retry the request with fresh token and subscription key
+              axiosConfig.headers!['Authorization'] = `${newSession.tokenType || 'Bearer'} ${newSession.accessToken}`;
+              axiosConfig.headers!['Bb-Api-Subscription-Key'] = newSession.subscriptionKey;
+              const retryResponse: AxiosResponse<T> = await axios(axiosConfig);
+              return retryResponse.data;
+            }
+          } catch (retryError) {
+            console.error('Failed to refresh session and retry request:', retryError);
           }
-        } catch (retryError) {
-          console.error('Failed to refresh session and retry request:', retryError);
+          
+          // Authentication failed - redirect to login
+          throw new Error('Authentication expired - please log in again');
         }
         
-        // Authentication failed - redirect to login
-        throw new Error('Authentication expired - please log in again');
+        // Re-throw other errors with more context
+        const errorMessage = error.response?.data?.message || 
+                             error.response?.data?.error_description || 
+                             error.response?.data?.error || 
+                             error.message;
+        throw new Error(`API request failed: ${errorMessage}`);
       }
-      
-      // Re-throw other errors with more context
-      const errorMessage = error.response?.data?.message || 
-                           error.response?.data?.error_description || 
-                           error.response?.data?.error || 
-                           error.message;
-      throw new Error(`API request failed: ${errorMessage}`);
+    };
+
+    // Use retry logic unless explicitly disabled
+    if (options.retries !== false) {
+      return this.withRetry(executeRequest);
+    } else {
+      return executeRequest();
     }
   }
 
   // Convenience method for making Blackbaud Gift API calls
+  @cache({ 
+    keyPrefix: 'gifts', 
+    expirationMs: 300000, // 5 minutes
+    keyGenerator: (limit: number, listId?: string) => `limit_${limit}_listId_${listId || 'none'}`
+  })
   async getGifts(limit: number = 50, listId?: string): Promise<any> {
     let url = `/gift/v1/gifts?limit=${limit}`;
     if (listId) {
@@ -213,11 +307,21 @@ class AuthService {
   }
 
   // Get gift attachments for a specific gift
+  @cache({ 
+    keyPrefix: 'getGiftAttachments', 
+    expirationMs: 24*60*60*1000, // 24 hours
+    keyGenerator: (giftId: string) => `${giftId}`
+  })
   async getGiftAttachments(giftId: string): Promise<any> {
     return this.apiRequest(`/gift/v1/gifts/${giftId}/attachments`);
   }
 
   // Get lists from the List API
+  @cache({ 
+    keyPrefix: 'lists', 
+    expirationMs: 6000000, // 100 minutes
+    keyGenerator: (limit: number, listType?: string) => `limit_${limit}_type_${listType || 'none'}`
+  })
   async getLists(limit: number = 50, listType?: string): Promise<any> {
     let url = `/list/v1/lists?limit=${limit}`;
     if (listType) {
@@ -227,79 +331,26 @@ class AuthService {
   }
 
   // Get queries from the Query API
+  @cache({ 
+    keyPrefix: 'queries', 
+    expirationMs: 900000, // 15 minutes
+    keyGenerator: (limit: number) => `limit_${limit}`
+  })
   async getQueries(limit: number = 50): Promise<any> {
     const url = `/query/queries?product=RE&module=None&limit=${limit}`;
     return this.apiRequest(url);
   }
 
   // Get constituent information by ID with caching
-  async getConstituent(constituentId: string, useCache: boolean = true): Promise<ConstituentInfo | null> {
-    const cacheKey = `constituent_${constituentId}`;
-    const promiseKey = `${constituentId}_${useCache}`;
-    
-    // Check if there's already a pending request for this constituent
-    if (this.constituentPromises.has(promiseKey)) {
-      console.log(`Using memoized promise for constituent ID: ${constituentId}`);
-      return this.constituentPromises.get(promiseKey)!;
-    }
-
-    // Create and memoize the promise
-    const promise = this.fetchConstituentData(constituentId, useCache, cacheKey);
-    this.constituentPromises.set(promiseKey, promise);
-
-    try {
-      const result = await promise;
-      return result;
-    } finally {
-      // Clean up the memoized promise after completion (success or failure)
-      this.constituentPromises.delete(promiseKey);
-    }
-  }
-
-  // Extracted constituent fetching logic for better separation of concerns
-  private async fetchConstituentData(constituentId: string, useCache: boolean, cacheKey: string): Promise<ConstituentInfo | null> {
-    // Check cache first if enabled
-    if (useCache) {
-      try {
-        const cached = localStorage.getItem(cacheKey);
-        if (cached) {
-          const cachedData = JSON.parse(cached);
-          const now = Date.now();
-          
-          // Cache valid for 1 week (604800000 ms)
-          if (cachedData.timestamp && (now - cachedData.timestamp) < 604800000) {
-            console.log(`Using cached constituent data for ID: ${constituentId}`);
-            return cachedData.data;
-          } else {
-            // Remove expired cache
-            localStorage.removeItem(cacheKey);
-          }
-        }
-      } catch (error) {
-        console.warn('Failed to read constituent from cache:', error);
-        localStorage.removeItem(cacheKey);
-      }
-    }
-
-    // Fetch from API
+  @cache({ 
+    keyPrefix: 'getConstituent', 
+    expirationMs: 24*60*60*1000, // 1 day
+    keyGenerator: (constituentId: string) => `${constituentId}`
+  })
+  async getConstituent(constituentId: string): Promise<ConstituentInfo | null> {
     try {
       console.log(`Fetching constituent data from API for ID: ${constituentId}`);
       const constituentData: ConstituentInfo = await this.apiRequest(`/constituent/v1/constituents/${constituentId}`);
-      
-      // Cache the result if caching is enabled
-      if (useCache) {
-        try {
-          const cacheData = {
-            data: constituentData,
-            timestamp: Date.now()
-          };
-          localStorage.setItem(cacheKey, JSON.stringify(cacheData));
-          console.log(`Cached constituent data for ID: ${constituentId}`);
-        } catch (error) {
-          console.warn('Failed to cache constituent data:', error);
-        }
-      }
-      
       return constituentData;
     } catch (error: any) {
       console.error(`Failed to fetch constituent ${constituentId}:`, error);
@@ -342,7 +393,7 @@ class AuthService {
 
     // Fetch uncached constituents from API
     const fetchPromises = uncachedIds.map(async (id) => {
-      const constituent = await this.getConstituent(id, false); // Don't double-cache
+      const constituent = await this.getConstituent(id);
       results[id] = constituent;
     });
 
@@ -409,65 +460,74 @@ class AuthService {
 
   // Make API request using a full URL (for pagination next_link)
   async apiRequestUrl<T = any>(fullUrl: string, options: ApiRequestOptions = {}): Promise<T> {
-    // Check authentication status first to get the latest bearer token and subscription key
-    const session = await this.checkAuthentication();
-    
-    if (!session.authenticated || !session.accessToken) {
-      throw new Error('Not authenticated - please log in');
-    }
+    const executeRequest = async (): Promise<T> => {
+      // Check authentication status first to get the latest bearer token and subscription key
+      const session = await this.checkAuthentication();
+      
+      if (!session.authenticated || !session.accessToken) {
+        throw new Error('Not authenticated - please log in');
+      }
 
-    if (!session.subscriptionKey) {
-      throw new Error('Subscription key not available from proxy server. Please check proxy configuration.');
-    }
+      if (!session.subscriptionKey) {
+        throw new Error('Subscription key not available from proxy server. Please check proxy configuration.');
+      }
 
-    // Prepare headers with authentication and subscription key from proxy
-    const headers: Record<string, string> = {
-      'Authorization': `${session.tokenType || 'Bearer'} ${session.accessToken}`,
-      'Bb-Api-Subscription-Key': session.subscriptionKey,
-      'Content-Type': 'application/json',
-      ...options.headers,
-    };
+      // Prepare headers with authentication and subscription key from proxy
+      const headers: Record<string, string> = {
+        'Authorization': `${session.tokenType || 'Bearer'} ${session.accessToken}`,
+        'Bb-Api-Subscription-Key': session.subscriptionKey,
+        'Content-Type': 'application/json',
+        ...options.headers,
+      };
 
-    const axiosConfig: AxiosRequestConfig = {
-      url: fullUrl,
-      method: options.method || 'GET',
-      headers,
-      data: options.data,
-      params: options.params,
-      timeout: 30000,
-    };
+      const axiosConfig: AxiosRequestConfig = {
+        url: fullUrl,
+        method: options.method || 'GET',
+        headers,
+        data: options.data,
+        params: options.params,
+        timeout: 30000,
+      };
 
-    try {
-      const response: AxiosResponse<T> = await axios(axiosConfig);
-      return response.data;
-    } catch (error: any) {
-      if (error.response?.status === 401) {
-        // Token might be expired - clear cached session and retry once
-        this.sessionInfo = null;
-        
-        try {
-          const newSession = await this.checkAuthentication();
-          if (newSession.authenticated && newSession.accessToken && newSession.subscriptionKey) {
-            // Retry the request with fresh token and subscription key
-            axiosConfig.headers!['Authorization'] = `${newSession.tokenType || 'Bearer'} ${newSession.accessToken}`;
-            axiosConfig.headers!['Bb-Api-Subscription-Key'] = newSession.subscriptionKey;
-            const retryResponse: AxiosResponse<T> = await axios(axiosConfig);
-            return retryResponse.data;
+      try {
+        const response: AxiosResponse<T> = await axios(axiosConfig);
+        return response.data;
+      } catch (error: any) {
+        if (error.response?.status === 401) {
+          // Token might be expired - clear cached session and retry once
+          this.sessionInfo = null;
+          
+          try {
+            const newSession = await this.checkAuthentication();
+            if (newSession.authenticated && newSession.accessToken && newSession.subscriptionKey) {
+              // Retry the request with fresh token and subscription key
+              axiosConfig.headers!['Authorization'] = `${newSession.tokenType || 'Bearer'} ${newSession.accessToken}`;
+              axiosConfig.headers!['Bb-Api-Subscription-Key'] = newSession.subscriptionKey;
+              const retryResponse: AxiosResponse<T> = await axios(axiosConfig);
+              return retryResponse.data;
+            }
+          } catch (retryError) {
+            console.error('Failed to refresh session and retry request:', retryError);
           }
-        } catch (retryError) {
-          console.error('Failed to refresh session and retry request:', retryError);
+          
+          // Authentication failed - redirect to login
+          throw new Error('Authentication expired - please log in again');
         }
         
-        // Authentication failed - redirect to login
-        throw new Error('Authentication expired - please log in again');
+        // Re-throw other errors with more context
+        const errorMessage = error.response?.data?.message || 
+                             error.response?.data?.error_description || 
+                             error.response?.data?.error || 
+                             error.message;
+        throw new Error(`API request failed: ${errorMessage}`);
       }
-      
-      // Re-throw other errors with more context
-      const errorMessage = error.response?.data?.message || 
-                           error.response?.data?.error_description || 
-                           error.response?.data?.error || 
-                           error.message;
-      throw new Error(`API request failed: ${errorMessage}`);
+    };
+
+    // Use retry logic unless explicitly disabled
+    if (options.retries !== false) {
+      return this.withRetry(executeRequest);
+    } else {
+      return executeRequest();
     }
   }
 

@@ -77,18 +77,22 @@ const Lists: React.FC = () => {
   }, [filters.listType]);
 
   const fetchLists = async (reset: boolean = true): Promise<void> => {
-    try {
-      if (reset) {
-        setLoading(true);
-        setError(null);
-        setLists([]);
-        setNextLink(null);
-      } else {
-        setLoadingMore(true);
-      }
+    if (reset) {
+      setLoading(true);
+      setError(null);
+      setLists([]);
+      setNextLink(null);
+    } else {
+      setLoadingMore(true);
+    }
 
-      // Get lists from the auth service
-      const response: ListsResponse = await authService.getLists(50, filters.listType || undefined);
+    try {
+      // Use centralized query handler
+      const response: ListsResponse = await authService.executeQuery(
+        () => authService.getLists(50, filters.listType || undefined),
+        'fetching lists',
+        (errorMsg) => setError(errorMsg)
+      );
       
       if (reset) {
         setLists(response.value || []);
@@ -98,12 +102,9 @@ const Lists: React.FC = () => {
       
       setNextLink(response.next_link || null);
       setTotalCount(response.count || 0);
-
     } catch (err: any) {
+      // Error is already handled by executeQuery, but we still need to catch it
       console.error("Failed to fetch lists:", err);
-      setError(
-        err.message || "Failed to fetch lists from Blackbaud API"
-      );
     } finally {
       if (reset) {
         setLoading(false);
@@ -116,21 +117,23 @@ const Lists: React.FC = () => {
   const loadMoreLists = async (): Promise<void> => {
     if (!nextLink || loadingMore) return;
     
-    try {
-      setLoadingMore(true);
-      setError(null);
+    setLoadingMore(true);
+    setError(null);
 
-      // Use the next_link URL to fetch more lists
-      const response: ListsResponse = await authService.apiRequestUrl(nextLink);
+    try {
+      // Use centralized query handler
+      const response: ListsResponse = await authService.executeQuery(
+        () => authService.apiRequestUrl(nextLink),
+        'loading more lists',
+        (errorMsg) => setError(errorMsg)
+      );
       
       setLists(prev => [...prev, ...(response.value || [])]);
       setNextLink(response.next_link || null);
       setTotalCount(response.count || 0);
     } catch (err: any) {
+      // Error is already handled by executeQuery, but we still need to catch it
       console.error("Failed to load more lists:", err);
-      setError(
-        err.message || "Failed to load more lists from Blackbaud API"
-      );
     } finally {
       setLoadingMore(false);
     }

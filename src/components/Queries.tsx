@@ -51,18 +51,22 @@ const Queries: React.FC = () => {
   }, []);
 
   const fetchQueries = async (reset: boolean = true): Promise<void> => {
-    try {
-      if (reset) {
-        setLoading(true);
-        setError(null);
-        setQueries([]);
-        setNextLink(null);
-      } else {
-        setLoadingMore(true);
-      }
+    if (reset) {
+      setLoading(true);
+      setError(null);
+      setQueries([]);
+      setNextLink(null);
+    } else {
+      setLoadingMore(true);
+    }
 
-      // Get queries from the auth service
-      const response: QueriesResponse = await authService.getQueries(50);
+    try {
+      // Use centralized query handler
+      const response: QueriesResponse = await authService.executeQuery(
+        () => authService.getQueries(50),
+        'fetching queries',
+        (errorMsg) => setError(errorMsg)
+      );
       
       if (reset) {
         setQueries(response.value || []);
@@ -72,12 +76,9 @@ const Queries: React.FC = () => {
       
       setNextLink(response.next_link || null);
       setTotalCount(response.count || 0);
-
     } catch (err: any) {
+      // Error is already handled by executeQuery, but we still need to catch it
       console.error("Failed to fetch queries:", err);
-      setError(
-        err.message || "Failed to fetch queries from Blackbaud API"
-      );
     } finally {
       if (reset) {
         setLoading(false);
@@ -90,21 +91,23 @@ const Queries: React.FC = () => {
   const loadMoreQueries = async (): Promise<void> => {
     if (!nextLink || loadingMore) return;
     
-    try {
-      setLoadingMore(true);
-      setError(null);
+    setLoadingMore(true);
+    setError(null);
 
-      // Use the next_link URL to fetch more queries
-      const response: QueriesResponse = await authService.apiRequestUrl(nextLink);
+    try {
+      // Use centralized query handler
+      const response: QueriesResponse = await authService.executeQuery(
+        () => authService.apiRequestUrl(nextLink),
+        'loading more queries',
+        (errorMsg) => setError(errorMsg)
+      );
       
       setQueries(prev => [...prev, ...(response.value || [])]);
       setNextLink(response.next_link || null);
       setTotalCount(response.count || 0);
     } catch (err: any) {
+      // Error is already handled by executeQuery, but we still need to catch it
       console.error("Failed to load more queries:", err);
-      setError(
-        err.message || "Failed to load more queries from Blackbaud API"
-      );
     } finally {
       setLoadingMore(false);
     }

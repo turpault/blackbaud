@@ -4,7 +4,7 @@ import authService, { SessionInfo } from "../services/authService";
 
 // Lazy load the GiftList component since it's large
 const GiftList = React.lazy(() => import("./GiftList"));
-const ConstituentManager = React.lazy(() => import("./ConstituentManager"));
+const CacheStatistics = React.lazy(() => import("./CacheStatistics"));
 const Lists = React.lazy(() => import("./Lists"));
 const Queries = React.lazy(() => import("./Queries"));
 
@@ -55,7 +55,7 @@ const Dashboard: React.FC<DashboardProps> = ({ sessionInfo }) => {
 
   const tabs = [
     { id: "gifts", label: "Gifts", icon: "🎁" },
-    { id: "constituents", label: "Constituents", icon: "👤" },
+    { id: "cache-stats", label: "Cache Statistics", icon: "📊" },
     { id: "lists", label: "Lists", icon: "📝" },
     { id: "queries", label: "Queries", icon: "🔍" },
     { id: "profile", label: "Profile", icon: "👤" },
@@ -206,7 +206,7 @@ const Dashboard: React.FC<DashboardProps> = ({ sessionInfo }) => {
       <div style={{ marginTop: "20px" }}>
         <Suspense fallback={<TabLoadingFallback />}>
           {activeTab === "gifts" && <GiftList />}
-          {activeTab === "constituents" && <ConstituentManager />}
+          {activeTab === "cache-stats" && <CacheStatistics />}
           {activeTab === "lists" && <Lists />}
           {activeTab === "queries" && <Queries />}
           {activeTab === "profile" && (

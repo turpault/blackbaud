@@ -72,47 +72,6 @@ interface Filters {
   list_id: string;
 }
 
-// Exponential backoff retry utility for 429 errors
-const withRetry = async <T,>(
-  operation: () => Promise<T>,
-  maxRetries: number = 5,
-  baseDelayMs: number = 1000
-): Promise<T> => {
-  let lastError: Error | null = null;
-  
-  for (let attempt = 0; attempt <= maxRetries; attempt++) {
-    try {
-      return await operation();
-    } catch (error: any) {
-      lastError = error;
-      
-      // Check if it's a 429 error
-      const is429Error = error.response?.status === 429 || 
-                         error.status === 429 || 
-                         error.message?.includes('429') ||
-                         error.message?.toLowerCase().includes('rate limit') ||
-                         error.message?.toLowerCase().includes('too many requests');
-      
-      // Only retry on 429 errors, and only if we have attempts left
-      if (!is429Error || attempt === maxRetries) {
-        throw error;
-      }
-      
-      // Calculate delay with exponential backoff and jitter
-      const backoffDelay = baseDelayMs * Math.pow(2, attempt);
-      const jitter = Math.random() * 0.1 * backoffDelay; // 10% jitter
-      const totalDelay = backoffDelay + jitter;
-      
-      console.warn(`Rate limited (429), retrying in ${Math.round(totalDelay)}ms... (attempt ${attempt + 1}/${maxRetries + 1})`);
-      
-      // Wait before retrying
-      await new Promise(resolve => setTimeout(resolve, totalDelay));
-    }
-  }
-  
-  throw lastError || new Error('Max retries exceeded');
-};
-
 const GiftList: React.FC = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const [gifts, setGifts] = useState<Gift[]>([]);
@@ -147,19 +106,21 @@ const GiftList: React.FC = () => {
   }, [filters.list_id]);
 
   const fetchGifts = async (reset: boolean = true): Promise<void> => {
-    try {
-      if (reset) {
-        setLoading(true);
-        setError(null);
-        setGifts([]);
-        setNextLink(null);
-      } else {
-        setLoadingMore(true);
-      }
+    if (reset) {
+      setLoading(true);
+      setError(null);
+      setGifts([]);
+      setNextLink(null);
+    } else {
+      setLoadingMore(true);
+    }
 
-      // Use the convenience method from auth service with retry wrapper
-      const response: GiftListResponse = await withRetry(
-        () => authService.getGifts(50, filters.list_id || undefined)
+    try {
+      // Use centralized query handler
+      const response: GiftListResponse = await authService.executeQuery(
+        () => authService.getGifts(50, filters.list_id || undefined),
+        'fetching gifts',
+        (errorMsg) => setError(errorMsg)
       );
       
       if (reset) {
@@ -179,8 +140,9 @@ const GiftList: React.FC = () => {
         
         if (constituentIds.length > 0) {
           try {
-            const constituents = await withRetry(
-              () => authService.getConstituents(constituentIds)
+            const constituents = await authService.executeQuery(
+              () => authService.getConstituents(constituentIds),
+              'fetching constituent details'
             );
             setCachedConstituents(prev => ({ ...prev, ...constituents }));
           } catch (error) {
@@ -189,10 +151,8 @@ const GiftList: React.FC = () => {
         }
       }
     } catch (err: any) {
+      // Error is already handled by executeQuery, but we still need to catch it
       console.error("Failed to fetch gifts:", err);
-      setError(
-        err.message || "Failed to fetch gifts from Blackbaud API"
-      );
     } finally {
       if (reset) {
         setLoading(false);
@@ -205,23 +165,23 @@ const GiftList: React.FC = () => {
   const loadMoreGifts = async (): Promise<void> => {
     if (!nextLink || loadingMore) return;
     
-    try {
-      setLoadingMore(true);
-      setError(null);
+    setLoadingMore(true);
+    setError(null);
 
-      // Use the next_link URL to fetch more gifts with retry wrapper
-      const response: GiftListResponse = await withRetry(
-        () => authService.apiRequestUrl(nextLink)
+    try {
+      // Use centralized query handler
+      const response: GiftListResponse = await authService.executeQuery(
+        () => authService.apiRequestUrl(nextLink),
+        'loading more gifts',
+        (errorMsg) => setError(errorMsg)
       );
       
       setGifts(prev => [...prev, ...(response.value || [])]);
       setNextLink(response.next_link || null);
       setTotalCount(response.count || 0);
     } catch (err: any) {
+      // Error is already handled by executeQuery, but we still need to catch it
       console.error("Failed to load more gifts:", err);
-      setError(
-        err.message || "Failed to load more gifts from Blackbaud API"
-      );
     } finally {
       setLoadingMore(false);
     }
@@ -237,8 +197,9 @@ const GiftList: React.FC = () => {
 
     try {
       console.log(`Fetching attachments for gift ${giftId}`);
-      const response = await withRetry(
-        () => authService.getGiftAttachments(giftId)
+      const response = await authService.executeQuery(
+        () => authService.getGiftAttachments(giftId),
+        `fetching attachments for gift ${giftId}`
       );
       
       setGiftAttachments(prev => ({

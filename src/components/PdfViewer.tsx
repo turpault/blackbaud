@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
+import { isBlackbaudFileUrl, getProxiedUrl } from '../utils/corsProxy';
 
 // Import PDF.js - using require to avoid TypeScript issues
 // eslint-disable-next-line @typescript-eslint/no-var-requires
@@ -49,10 +50,7 @@ const PdfViewer: React.FC<PdfViewerProps> = ({
     }
   }, [pdfDoc, pageNum, scale]);
 
-  // Check if URL is a Blackbaud file URL
-  const isBlackbaudFileUrl = (url: string): boolean => {
-    return url.includes('fil-pcan01.app.blackbaud.net') || url.includes('blackbaud.net');
-  };
+
 
   const loadPdf = async () => {
     try {
@@ -67,106 +65,32 @@ const PdfViewer: React.FC<PdfViewerProps> = ({
 
       let pdfUrl = url;
 
-      // If it's a Blackbaud file URL, fetch it as a blob first
+      // If it's a Blackbaud file URL, use our CORS proxy
       if (isBlackbaudFileUrl(url)) {
         try {
-          console.log('Fetching Blackbaud PDF as blob:', url);
+          pdfUrl = getProxiedUrl(url);
+          console.log('Fetching PDF through CORS proxy:', pdfUrl);
           
-          // Try different fetch configurations to handle CORS issues
-          let response: Response | null = null;
-          let lastError: Error | null = null;
+          const response = await fetch(pdfUrl, {
+            method: 'GET',
+            headers: {
+              'Accept': 'application/pdf,*/*',
+            },
+          });
 
-          // Configuration 1: Try with credentials and minimal headers
-          try {
-            response = await fetch(url, {
-              method: 'GET',
-              credentials: 'include',
-              headers: {
-                'Accept': 'application/pdf,*/*',
-              },
-            });
-            if (response.ok) {
-              console.log('Fetch successful with credentials');
-            } else {
-              throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-            }
-          } catch (error) {
-            console.warn('Fetch with credentials failed:', error);
-            lastError = error as Error;
-            response = null;
-          }
-
-          // Configuration 2: Try without credentials
-          if (!response) {
-            try {
-              response = await fetch(url, {
-                method: 'GET',
-                headers: {
-                  'Accept': 'application/pdf,*/*',
-                },
-              });
-              if (response.ok) {
-                console.log('Fetch successful without credentials');
-              } else {
-                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-              }
-            } catch (error) {
-              console.warn('Fetch without credentials failed:', error);
-              lastError = error as Error;
-              response = null;
-            }
-          }
-
-          // Configuration 3: Try with minimal configuration
-          if (!response) {
-            try {
-              response = await fetch(url, {
-                method: 'GET',
-              });
-              if (response.ok) {
-                console.log('Fetch successful with minimal config');
-              } else {
-                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-              }
-            } catch (error) {
-              console.warn('Fetch with minimal config failed:', error);
-              lastError = error as Error;
-              response = null;
-            }
-          }
-
-          // Configuration 4: Try with same-origin credentials
-          if (!response) {
-            try {
-              response = await fetch(url, {
-                method: 'GET',
-                credentials: 'same-origin',
-              });
-              if (response.ok) {
-                console.log('Fetch successful with same-origin credentials');
-              } else {
-                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-              }
-            } catch (error) {
-              console.warn('Fetch with same-origin failed:', error);
-              lastError = error as Error;
-              response = null;
-            }
-          }
-
-          if (!response) {
-            throw lastError || new Error('All fetch attempts failed');
+          if (!response.ok) {
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
           }
 
           const blob = await response.blob();
           const newBlobUrl = URL.createObjectURL(blob);
           setBlobUrl(newBlobUrl);
           pdfUrl = newBlobUrl;
-          console.log('Created blob URL for PDF:', newBlobUrl);
+          console.log('Successfully fetched PDF through proxy, created blob URL:', newBlobUrl);
         } catch (fetchError: any) {
-          console.error('Failed to fetch PDF as blob:', fetchError);
-          // Instead of throwing immediately, try to load the PDF directly
-          console.log('Attempting to load PDF directly without blob conversion...');
+          console.error('Failed to fetch PDF through proxy:', fetchError);
+          // Fallback to direct URL as last resort
+          console.log('Attempting to load PDF directly as fallback...');
           pdfUrl = url;
         }
       }
@@ -407,7 +331,7 @@ const PdfViewer: React.FC<PdfViewerProps> = ({
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
           <a
-            href={url}
+            href={isBlackbaudFileUrl(url) ? getProxiedUrl(url) : url}
             target="_blank"
             rel="noopener noreferrer"
             style={{
@@ -422,7 +346,7 @@ const PdfViewer: React.FC<PdfViewerProps> = ({
             📄 Open
           </a>
           <a
-            href={url}
+            href={isBlackbaudFileUrl(url) ? getProxiedUrl(url) : url}
             download={name}
             style={{
               padding: '4px 8px',

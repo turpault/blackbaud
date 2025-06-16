@@ -36,11 +36,17 @@ const ConstituentManager: React.FC<ConstituentManagerProps> = ({ constituentId }
     setError(null);
 
     try {
-      const constituentData = await authService.getConstituent(id, useCache);
+      // Use centralized query handler
+      const constituentData = await authService.executeQuery(
+        () => authService.getConstituent(id),
+        'fetching constituent',
+        (errorMsg) => setError(errorMsg)
+      );
       setConstituent(constituentData);
       updateCacheStats();
     } catch (err: any) {
-      setError(err.message || "Failed to fetch constituent");
+      // Error is already handled by executeQuery, but we still need to catch it
+      console.error("Failed to fetch constituent:", err);
       setConstituent(null);
     } finally {
       setLoading(false);
@@ -68,18 +74,26 @@ const ConstituentManager: React.FC<ConstituentManagerProps> = ({ constituentId }
       // Make 5 simultaneous requests for the same constituent
       // Only one API call should be made due to promise memoization
       console.log("Starting 5 simultaneous requests for the same constituent...");
-      const promises = Array(5).fill(null).map((_, index) => {
-        console.log(`Starting request ${index + 1}`);
-        return authService.getConstituent(searchId, false); // Force fresh API calls
-      });
-
-      const results = await Promise.all(promises);
-      console.log("All requests completed:", results);
       
+      // Use centralized query handler for promise memoization test
+      const results = await authService.executeQuery(
+        async () => {
+          const promises = Array(5).fill(null).map((_, index) => {
+            console.log(`Starting request ${index + 1}`);
+            return authService.getConstituent(searchId); // Force fresh API calls
+          });
+          return Promise.all(promises);
+        },
+        'testing promise memoization',
+        (errorMsg) => setError(errorMsg)
+      );
+      
+      console.log("All requests completed:", results);
       setConstituent(results[0]); // All should be the same
       updateCacheStats();
     } catch (err: any) {
-      setError(err.message || "Failed to test promise memoization");
+      // Error is already handled by executeQuery, but we still need to catch it
+      console.error("Failed to test promise memoization:", err);
     } finally {
       setLoading(false);
     }
