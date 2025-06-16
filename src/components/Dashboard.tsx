@@ -44,18 +44,11 @@ const TabLoadingFallback: React.FC = () => {
   );
 };
 
-interface UserInfo {
-  [key: string]: any;
-}
-
 interface DashboardProps {
   sessionInfo: SessionInfo | null;
 }
 
 const Dashboard: React.FC<DashboardProps> = ({ sessionInfo }) => {
-  const [userInfo, setUserInfo] = useState<UserInfo | null>(null);
-  const [loading, setLoading] = useState<boolean>(true);
-  const [error, setError] = useState<string | null>(null);
   const { tab } = useParams<{ tab?: string }>();
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<string>(tab || "gifts");
@@ -68,10 +61,6 @@ const Dashboard: React.FC<DashboardProps> = ({ sessionInfo }) => {
     { id: "profile", label: "Profile", icon: "👤" },
   ];
 
-  useEffect(() => {
-    fetchUserInfo();
-  }, []);
-
   // Sync activeTab with URL parameter
   useEffect(() => {
     if (tab && tab !== activeTab) {
@@ -81,21 +70,6 @@ const Dashboard: React.FC<DashboardProps> = ({ sessionInfo }) => {
       navigate("/dashboard/gifts", { replace: true });
     }
   }, [tab, activeTab, navigate]);
-
-  const fetchUserInfo = async (): Promise<void> => {
-    try {
-      setLoading(true);
-      setError(null);
-      // Try to get user profile - this might need adjustment based on available Blackbaud APIs
-      const userData = await authService.getUserProfile();
-      setUserInfo(userData);
-    } catch (err: any) {
-      setError("Failed to fetch user information: " + err.message);
-      console.error("API Error:", err);
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const handleLogout = async (): Promise<void> => {
     try {
@@ -238,14 +212,7 @@ const Dashboard: React.FC<DashboardProps> = ({ sessionInfo }) => {
           {activeTab === "profile" && (
             <div style={{ textAlign: "center", padding: "40px" }}>
               <h3>👤 Profile Information</h3>
-              {userInfo ? (
-                <div>
-                  <p><strong>Name:</strong> {userInfo.name}</p>
-                  <p><strong>Email:</strong> {userInfo.email || "Not available"}</p>
-                </div>
-              ) : (
-                <p>Loading profile information...</p>
-              )}
+              <p>Profile information is not available.</p>
             </div>
           )}
         </Suspense>

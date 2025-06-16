@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useSearchParams } from "react-router-dom";
 import authService, { ConstituentInfo } from "../services/authService";
+import PdfViewer from "./PdfViewer";
 
 // Define types inline since we removed the auth types file
 interface Gift {
@@ -485,6 +486,20 @@ const GiftList: React.FC = () => {
     return hasImageExtension || isImageType || false;
   };
 
+  const isPdfFile = (attachment: GiftAttachment): boolean => {
+    if (!attachment.url) return false;
+
+    // Check by file extension
+    const url = attachment.url.toLowerCase();
+    const hasPdfExtension = url.includes(".pdf");
+
+    // Check by MIME type if available
+    const isPdfType = attachment.content_type?.toLowerCase() === "application/pdf" ||
+                      attachment.type?.toLowerCase() === "application/pdf";
+
+    return hasPdfExtension || isPdfType || false;
+  };
+
   const handleImageError = (attachmentId: string): void => {
     setImageErrors((prev) => new Set(Array.from(prev).concat(attachmentId)));
   };
@@ -532,6 +547,7 @@ const GiftList: React.FC = () => {
           const hasImageError = imageErrors.has(attachmentKey);
           const shouldShowAsImage =
             attachment.url && isImageFile(attachment) && !hasImageError;
+          const shouldShowAsPdf = attachment.url && isPdfFile(attachment);
           const hasThumbnail = attachment.thumbnail_url && !hasImageError;
 
           return (
@@ -637,6 +653,15 @@ const GiftList: React.FC = () => {
                   >
                     View Full Size
                   </a>
+                </div>
+              ) : shouldShowAsPdf ? (
+                <div style={{ marginTop: "6px" }}>
+                  <PdfViewer
+                    url={attachment.url!}
+                    name={attachment.name || attachment.file_name}
+                    height={300}
+                    width="100%"
+                  />
                 </div>
               ) : attachment.url ? (
                 <div style={{ marginTop: "6px" }}>
