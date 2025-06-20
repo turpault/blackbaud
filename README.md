@@ -1,30 +1,39 @@
 # Blackbaud OAuth React Application
 
-A modern React application with TypeScript that integrates with Blackbaud's OAuth 2.0 authentication system and Gift List API. Features secure authentication, comprehensive gift data display with image attachments, and production-ready HTTPS deployment.
+A modern React application with TypeScript that integrates with Blackbaud's OAuth 2.0 authentication system and Gift List API. Features secure authentication, comprehensive gift data display with image attachments, PDF viewing capabilities, internationalization, and advanced caching.
 
 ## Features
 
-- 🔐 **OAuth 2.0 Authentication** with Blackbaud's API
+- 🔐 **OAuth 2.0 Authentication** with Blackbaud's API via proxy server
 - 🎁 **Gift List Display** with comprehensive data visualization
 - 🖼️ **Image Attachment Previews** with inline display
+- 📄 **PDF Viewer** with embedded PDF.js for document viewing
 - 📊 **Expandable Table Rows** with detailed information
-- 🔒 **Production HTTPS Deployment** with Let's Encrypt
+- 🌍 **Internationalization** (i18n) with English, French, and French Canadian
+- 💾 **Advanced Caching System** with localStorage and decorators
+- 👥 **Constituent Management** with detailed profiles
+- 📝 **Lists & Queries** management interface
+- 📈 **Cache Statistics** and performance monitoring
+- 🔄 **Rate Limiting** with automatic retry and exponential backoff
 - 💼 **TypeScript** for type safety
-- 🎨 **Modern UI** with responsive design
+- 🎨 **Modern UI** with responsive design and lazy loading
 
 ## Prerequisites
 
 - Node.js (v14 or higher)
 - npm or yarn
+- A proxy server configured for Blackbaud OAuth (see CORS_PROXY_INTEGRATION.md)
 
 ## Environment Variables
 
 Create a `.env` file in the root directory:
 
 ```env
-REACT_APP_BLACKBAUD_CLIENT_ID=your_client_id_here
-REACT_APP_BLACKBAUD_CLIENT_SECRET=your_client_secret_here
-REACT_APP_REDIRECT_URI=https://home.turpault.me/blackbaud/callback
+# Optional: Environment identifier
+REACT_APP_ENVIRONMENT=development
+
+# Note: OAuth2 credentials (Client ID, Client Secret) and Subscription Key 
+# are now handled by the proxy server for better security.
 ```
 
 ## Development Setup
@@ -77,72 +86,112 @@ Note: Container deployment has been removed. Please configure native deployment 
 
 ## Architecture
 
+### Application Structure
+
+```
+src/
+├── components/           # React components
+│   ├── Dashboard.tsx     # Main dashboard with tabs
+│   ├── GiftList.tsx      # Gift data display
+│   ├── Lists.tsx         # Lists management
+│   ├── Queries.tsx       # Queries management
+│   ├── ConstituentManager.tsx # Constituent profiles
+│   ├── PdfViewer.tsx     # PDF document viewer
+│   ├── CacheStatistics.tsx # Cache performance monitoring
+│   └── ...
+├── services/
+│   └── authService.ts    # Authentication and API service
+├── utils/
+│   ├── cacheDecorator.ts # Advanced caching system
+│   └── corsProxy.ts      # CORS proxy utilities
+├── locales/              # Internationalization files
+│   ├── en/
+│   ├── fr/
+│   └── fr-CA/
+└── i18n.ts              # i18n configuration
+```
+
 ### Application URL Structure
 
 The application is served from the `/blackbaud` subpath:
 - **Main Application**: `https://home.turpault.me/blackbaud`
-- **OAuth Callback**: `https://home.turpault.me/blackbaud/callback`
 - **Dashboard**: `https://home.turpault.me/blackbaud/dashboard`
-
-This allows you to serve other content at the root domain while keeping the Blackbaud OAuth app contained within its own subpath.
+- **Dashboard Tabs**: `https://home.turpault.me/blackbaud/dashboard/{gifts|lists|queries|profile|cache-stats}`
+- **Logout**: `https://home.turpault.me/blackbaud/logout`
 
 ### Authentication Flow
 
 1. **Login Initiation**: User clicks login button
-2. **OAuth Redirect**: Application redirects to Blackbaud authorization endpoint
-3. **Authorization**: User grants permissions on Blackbaud's platform
-4. **Callback Handling**: Blackbaud redirects back with authorization code
-5. **Token Exchange**: Application exchanges code for access token
-6. **API Access**: Application uses token for authenticated API requests
-7. **Token Refresh**: Automatic token refresh when needed
+2. **Proxy Redirect**: Application redirects to proxy server
+3. **OAuth Flow**: Proxy server handles Blackbaud OAuth2 flow
+4. **Session Management**: Proxy server maintains session and provides tokens
+5. **API Access**: Application uses proxy-provided tokens for authenticated API requests
+6. **Token Refresh**: Automatic token refresh handled by proxy server
 
-### Gift Data Display
+### Dashboard Features
 
-- **Comprehensive Table**: Displays all gift fields with proper formatting
-- **Expandable Rows**: Additional details shown on demand
-- **Image Attachments**: Inline preview for image files
-- **Currency Formatting**: Proper localization for monetary values
-- **Date Formatting**: Consistent date display across the application
-- **Error Handling**: Robust error handling with user feedback
+The dashboard includes multiple tabs:
 
-### Production Infrastructure
+- **🎁 Gifts**: Display and manage gift data with attachments
+- **📝 Lists**: View and manage Blackbaud lists
+- **🔍 Queries**: Execute and view query results
+- **👤 Profile**: User profile and session information
+- **📊 Cache Stats**: Monitor caching performance and statistics
 
-When deploying to production, consider:
-- **Web Server**: nginx, Apache, or other web server for serving static files
-- **SSL Certificates**: Let's Encrypt or other certificate authority
-- **Security Headers**: HSTS, CSP, and other security headers
-- **Compression**: Gzip compression for optimized asset delivery
-- **Caching**: Proper cache headers for static assets
+### Advanced Caching System
+
+The application includes a sophisticated caching system:
+
+- **Decorator-based caching** for API methods
+- **localStorage persistence** with expiration
+- **Automatic cache cleanup** of expired entries
+- **Cache statistics** and performance monitoring
+- **Configurable cache options** (TTL, key generation, etc.)
+
+### Internationalization (i18n)
+
+Supports multiple languages:
+- **English (en)**: Default language
+- **French (fr)**: French translations
+- **French Canadian (fr-CA)**: Canadian French variants
+
+Language detection and switching via `LanguageSelector` component.
+
+### Rate Limiting & Error Handling
+
+- **Automatic retry** with exponential backoff for 429 errors
+- **User-friendly error messages** for rate limiting
+- **Graceful degradation** when API limits are reached
+- **Comprehensive error logging** for debugging
 
 ## API Integration
 
-### Blackbaud Gift API
+### Blackbaud API Endpoints
 
-The application integrates with the Blackbaud Gift API:
+The application integrates with multiple Blackbaud APIs:
 
-- **Endpoint**: `https://api.sky.blackbaud.com/gift/v1/gifts`
-- **Authentication**: Bearer token (OAuth 2.0)
-- **Pagination**: Supports limit parameter (default: 50)
-- **Fields**: Comprehensive gift data including attachments
+- **Gifts API**: `https://api.sky.blackbaud.com/gift/v1/gifts`
+- **Lists API**: `https://api.sky.blackbaud.com/list/v1/lists`
+- **Queries API**: `https://api.sky.blackbaud.com/query/v1/queries`
+- **Constituents API**: `https://api.sky.blackbaud.com/constituent/v1/constituents`
+- **User Profile API**: `https://api.sky.blackbaud.com/user/v1/users`
 
-### Supported Gift Data
+### Supported Data Types
 
-- Basic information (ID, constituent, amount, date)
-- Gift classification (type, subtype, status)
-- Fund allocation (fund, campaign, appeal)
-- Receipt information (amount, date, batch number)
-- Payment details (method, check number, date)
-- Soft credits and acknowledgements
-- File attachments with image preview
+- **Gift Information**: ID, constituent, amount, date, classification
+- **Gift Attachments**: Images, PDFs, and other documents
+- **Constituent Profiles**: Complete constituent information
+- **Lists & Queries**: Dynamic data retrieval
+- **User Profiles**: Authentication and user information
 
 ## Security Features
 
+- **Proxy-based OAuth**: Credentials handled securely by proxy server
 - **HTTPS Only**: All traffic encrypted with TLS 1.2+
-- **HSTS**: HTTP Strict Transport Security enabled
-- **CSP Headers**: Content Security Policy headers
-- **OAuth State Parameter**: CSRF protection for OAuth flow
-- **Secure Token Storage**: Tokens stored securely in localStorage
+- **Session Management**: Secure session handling via proxy
 - **Input Validation**: TypeScript type checking and runtime validation
+- **CORS Handling**: Proper CORS configuration via proxy
+- **Rate Limiting**: Built-in protection against API abuse
 
 ## Browser Support
 
@@ -171,6 +220,11 @@ For support with Blackbaud API integration, refer to:
 - [OAuth 2.0 Guide](https://developer.sky.blackbaud.com/docs/authorization/)
 - [Gift API Reference](https://developer.sky.blackbaud.com/docs/services/58bdd5edd7dcde06046081d6)
 
+## Related Documentation
+
+- [CORS Proxy Integration](CORS_PROXY_INTEGRATION.md) - Setup and configuration
+- [Hybrid API Setup](HYBRID_API_SETUP.md) - Advanced API configuration
+
 ## Deployment Notes
 
 ### DNS Configuration
@@ -185,15 +239,16 @@ For production deployment:
 - Node.js runtime (for build process)
 - Web server (nginx, Apache, etc.)
 - SSL certificate setup
+- Proxy server for OAuth handling
 
 ## Troubleshooting
 
 ### Common Issues
 
-**Certificate generation fails:**
-- Verify DNS is pointing to your server
-- Check firewall allows ports 80/443
-- Ensure domain is accessible from the internet
+**Authentication fails:**
+- Verify proxy server is running and accessible
+- Check proxy server configuration
+- Ensure OAuth credentials are properly configured in proxy
 
 **Build fails:**
 - Clear node_modules: `rm -rf node_modules && npm install`
@@ -201,9 +256,14 @@ For production deployment:
 - Verify all environment variables are set
 
 **API requests fail:**
-- Check OAuth token validity
-- Verify Blackbaud API credentials
+- Check proxy server connectivity
+- Verify Blackbaud API credentials in proxy
 - Check network connectivity and CORS settings
+
+**Cache issues:**
+- Clear browser localStorage
+- Check cache statistics in dashboard
+- Verify cache configuration
 
 ### Monitoring
 
@@ -212,6 +272,7 @@ For production monitoring, consider:
 - Application performance monitoring
 - Server resource monitoring (CPU, memory, disk)
 - SSL certificate expiration monitoring
+- Cache performance metrics
 
 ### Deployment Checklist
 
@@ -219,6 +280,8 @@ For production deployment:
 - [ ] Build application with `npm run build`
 - [ ] Configure web server to serve static files
 - [ ] Set up SSL certificates
-- [ ] Configure proper security headers
+- [ ] Configure proxy server for OAuth
 - [ ] Test OAuth flow end-to-end
 - [ ] Monitor application performance
+- [ ] Configure caching strategy
+- [ ] Test internationalization

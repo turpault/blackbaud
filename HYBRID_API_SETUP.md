@@ -19,34 +19,9 @@ React App → Blackbaud API (Direct with Bearer Token)
 
 ## Setup Steps
 
-### 1. Configure the Proxy Server
+### 1. Proxy Server Session Endpoint
 
-Your proxy server (`proxy.yaml`) should include the bearer token in the session response:
-
-```yaml
-routes:
-  - domain: "your-domain.com"
-    type: "static"
-    path: "/blackbaud"
-    staticPath: "/path/to/blackbaud/build"
-    spaFallback: true
-    ssl: true
-    requireAuth: true
-    oauth2:
-      enabled: true
-      provider: "blackbaud"
-      clientId: "${BLACKBAUD_CLIENT_ID}"
-      clientSecret: "${BLACKBAUD_CLIENT_SECRET}"
-      authorizationEndpoint: "https://app.blackbaud.com/oauth/authorize"
-      tokenEndpoint: "https://oauth2.sky.blackbaud.com/token"
-      callbackUrl: "${BLACKBAUD_APP_REDIRECT_URI}"
-      subscriptionKey: "${BLACKBAUD_SUBSCRIPTION_KEY}"
-      scopes: ["read", "write"]
-```
-
-### 2. Proxy Server Session Endpoint
-
-The proxy server must return both the access token and subscription key in the `/oauth/session` endpoint response:
+The server must return both the access token and subscription key in the `/oauth/session` endpoint response:
 
 ```json
 {
@@ -57,28 +32,6 @@ The proxy server must return both the access token and subscription key in the `
   "scope": "read write",
   "expiresAt": "2024-01-01T00:00:00Z"
 }
-```
-
-### 3. React App Configuration
-
-The React app no longer requires any Blackbaud-specific environment variables since all credentials are provided by the proxy server:
-
-```bash
-# Copy the example file (optional - no Blackbaud config needed)
-cp env.example .env
-
-# The .env file is now optional for Blackbaud integration
-# All API credentials are provided by the proxy server
-```
-
-### 4. Required Environment Variables
-
-#### Proxy Server Environment Variables
-```bash
-BLACKBAUD_CLIENT_ID=your_client_id
-BLACKBAUD_CLIENT_SECRET=your_client_secret
-BLACKBAUD_APP_REDIRECT_URI=https://your-domain.com/blackbaud/oauth/callback
-BLACKBAUD_SUBSCRIPTION_KEY=your_subscription_key
 ```
 
 #### React App Environment Variables
