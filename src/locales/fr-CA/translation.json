@@ -1,0 +1,174 @@
+{
+  "common": {
+    "loading": "Ça charge...",
+    "loadingContent": "Ça load le contenu...",
+    "checkingAuth": "On vérifie ton authentification..."
+  },
+  "home": {
+    "title": "🚀 App OAuth Blackbaud",
+    "subtitle": "Connecte-toi ben sécure avec l'API de Blackbaud en utilisant l'authentification OAuth 2.0. Cette application-là montre un flow OAuth au complet avec des pratiques React ben à jour.",
+    "features": {
+      "secure": {
+        "title": "🔒 Sécure en masse",
+        "description": "OAuth 2.0 avec PKCE pis vérification d'état"
+      },
+      "fast": {
+        "title": "⚡ Vite en titi",
+        "description": "React moderne avec gestion d'état ben efficace"
+      },
+      "beautiful": {
+        "title": "🎨 Beau comme un cœur",
+        "description": "Interface usager clean avec des animations fluides"
+      }
+    },
+    "integration": {
+      "title": "Intégration API directe :",
+      "directApi": "🔗 Calls d'API Blackbaud directs",
+      "clientOauth": "🔐 Flow OAuth 2.0 côté client",
+      "secureStorage": "💾 Storage de tokens ben sécure",
+      "autoRefresh": "🔄 Refresh automatique des tokens"
+    }
+  },
+  "login": {
+    "buttonText": "🔐 Se logger avec Blackbaud",
+    "clickToAuth": "Clique icitte pour t'authentifier avec ton compte Blackbaud",
+    "secureAuth": "Authentification OAuth2 sécure via serveur proxy",
+    "buttonTitle": "Se logger avec Blackbaud OAuth2"
+  },
+  "dashboard": {
+    "title": "🎯 Dashboard Raiser's Edge NXT",
+    "subtitle": "Tu t'es connecté comme il faut avec Blackbaud, champion !",
+    "logoutPage": "Page de logout",
+    "quickLogout": "Logout vite",
+    "quickLogoutTitle": "Logout vite fait",
+    "tabs": {
+      "gifts": "Dons",
+      "cacheStats": "Stats du cache",
+      "lists": "Listes",
+      "queries": "Requêtes",
+      "profile": "Profil"
+    },
+    "profile": {
+      "title": "👤 Infos du profil",
+      "notAvailable": "Les infos du profil sont pas disponibles à soir."
+    }
+  },
+  "errors": {
+    "general": "Ayoye ! Y'a eu un bug quelque part...",
+    "network": "Problème de réseau, ça marche pas pantoute !",
+    "auth": "T'es pas connecté comme du monde, mon ami !",
+    "timeout": "Ça prend trop de temps, faut que ça aille plus vite !",
+    "notFound": "On trouve rien icitte, champion !",
+    "serverError": "Le serveur fait dur en titi !"
+  },
+  "actions": {
+    "retry": "Essaye encore",
+    "cancel": "Canceller",
+    "confirm": "OK d'abord",
+    "save": "Sauver ça",
+    "delete": "Scrapper ça",
+    "edit": "Changer ça",
+    "add": "Ajouter ça",
+    "search": "Chercher",
+    "filter": "Filtrer",
+    "refresh": "Refresher",
+    "back": "Retourner",
+    "next": "Suivant",
+    "previous": "Précédent",
+    "close": "Fermer ça",
+    "open": "Ouvrir ça"
+  },
+  "messages": {
+    "success": "Ça a marché comme un charme !",
+    "warning": "Attention là, fais donc attention !",
+    "info": "Just pour que tu le saches...",
+    "error": "Ça a pas marché pantoute !",
+    "loading": "Patiente un peu, ça s'en vient...",
+    "noData": "Y'a rien à voir icitte, mon vieux !",
+    "emptyList": "La liste est vide comme un frigidaire d'étudiant !",
+    "connectionLost": "On a perdu la connexion, voyons donc !",
+    "unauthorized": "T'as pas le droit de faire ça, mon homme !",
+    "forbidden": "C'est défendu, point final !",
+    "maintenance": "On fait du ménage dans le système, reviens plus tard !",
+    "comingSoon": "Ça s'en vient bientôt, garde tes shorts !",
+    "beta": "C'est encore en beta, faque fais attention !",
+    "experimental": "C'est expérimental, ça peut planter !",
+    "deprecated": "C'est dépassé, utilise autre chose !"
+  },
+  "time": {
+    "now": "Tout de suite",
+    "today": "À soir",
+    "yesterday": "Hier",
+    "tomorrow": "Demain",
+    "thisWeek": "Cette semaine icitte",
+    "lastWeek": "La semaine passée",
+    "nextWeek": "La semaine qui s'en vient",
+    "thisMonth": "Ce mois-ci",
+    "lastMonth": "Le mois passé",
+    "nextMonth": "Le mois qui s'en vient",
+    "thisYear": "Cette année",
+    "lastYear": "L'année passée",
+    "nextYear": "L'année qui s'en vient"
+  },
+  "navigation": {
+    "home": "Accueil",
+    "about": "À propos",
+    "contact": "Contact",
+    "help": "Aide",
+    "settings": "Settings",
+    "admin": "Admin",
+    "support": "Support"
+  },
+  "placeholders": {
+    "search": "Tape icitte pour chercher...",
+    "email": "Ton courriel icitte",
+    "password": "Ton mot de passe",
+    "name": "Ton nom",
+    "phone": "Ton numéro",
+    "address": "Ton adresse",
+    "city": "Ta ville",
+    "postalCode": "Ton code postal",
+    "province": "Ta province",
+    "country": "Ton pays"
+  },
+     "slang": {
+     "awesome": "Malade !",
+     "cool": "Cool en masse !",
+     "great": "Excellent !",
+     "nice": "Nice !",
+     "wow": "Wow, c'est fou !",
+     "oops": "Oups !",
+     "sorry": "Scuse !",
+     "thanks": "Merci ben !",
+     "welcome": "Bienvenue !",
+     "goodbye": "Bye là !",
+     "hello": "Salut !",
+     "yes": "Oui !",
+     "no": "Non !",
+     "maybe": "Peut-être ben !",
+     "sure": "C'est sûr !",
+     "exactly": "En plein ça !",
+     "perfect": "Parfait !",
+     "amazing": "Incroyable !",
+     "terrible": "Épouvantable !",
+     "boring": "Plate à mort !",
+     "funny": "Drôle comme tout !",
+     "weird": "Bizarre en titi !",
+     "crazy": "Fou comme un balai !",
+     "stupid": "Niaiseux !",
+     "smart": "Smart en masse !",
+     "fast": "Vite comme l'éclair !",
+     "slow": "Lent comme une tortue !",
+     "big": "Gros comme une maison !",
+     "small": "Petit comme ça !",
+     "expensive": "Cher en titi !",
+     "cheap": "Pas cher pantoute !",
+     "free": "Gratis !",
+     "busy": "Occupé en masse !",
+     "tired": "Fatigué comme un chien !",
+     "hungry": "J'ai faim en titi !",
+     "thirsty": "J'ai soif !",
+     "cold": "J'ai frette !",
+     "hot": "Y fait chaud en masse !"
+   }
+} 

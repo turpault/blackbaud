@@ -1,5 +1,5 @@
-import React, { useEffect, useRef, useState } from 'react';
-import { isBlackbaudFileUrl, getProxiedUrl } from '../utils/corsProxy';
+import React, { useEffect, useRef, useState, useCallback } from 'react';
+import { isBlackbaudFileUrl, getProxiedUrl, fetchThroughProxy } from '../utils/corsProxy';
 
 // Import PDF.js - using require to avoid TypeScript issues
 // eslint-disable-next-line @typescript-eslint/no-var-requires
@@ -33,26 +33,7 @@ const PdfViewer: React.FC<PdfViewerProps> = ({
   const [scale, setScale] = useState<number>(1.0);
   const [blobUrl, setBlobUrl] = useState<string | null>(null);
 
-  useEffect(() => {
-    loadPdf();
-    
-    // Cleanup blob URL on unmount or URL change
-    return () => {
-      if (blobUrl) {
-        URL.revokeObjectURL(blobUrl);
-      }
-    };
-  }, [url]);
-
-  useEffect(() => {
-    if (pdfDoc) {
-      renderPage(pageNum);
-    }
-  }, [pdfDoc, pageNum, scale]);
-
-
-
-  const loadPdf = async () => {
+  const loadPdf = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
@@ -65,33 +46,28 @@ const PdfViewer: React.FC<PdfViewerProps> = ({
 
       let pdfUrl = url;
 
-      // If it's a Blackbaud file URL, use our CORS proxy
+      // If it's a Blackbaud file URL, use our authenticated CORS proxy
       if (isBlackbaudFileUrl(url)) {
         try {
-          pdfUrl = getProxiedUrl(url);
-          console.log('Fetching PDF through CORS proxy:', pdfUrl);
+          console.log('Fetching PDF through authenticated CORS proxy:', url);
           
-          const response = await fetch(pdfUrl, {
-            method: 'GET',
-            headers: {
-              'Accept': 'application/pdf,*/*',
-            },
-          });
-
-          if (!response.ok) {
-            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-          }
-
+          const response = await fetchThroughProxy(url);
           const blob = await response.blob();
           const newBlobUrl = URL.createObjectURL(blob);
           setBlobUrl(newBlobUrl);
           pdfUrl = newBlobUrl;
-          console.log('Successfully fetched PDF through proxy, created blob URL:', newBlobUrl);
+          console.log('Successfully fetched PDF through authenticated proxy, created blob URL:', newBlobUrl);
         } catch (fetchError: any) {
-          console.error('Failed to fetch PDF through proxy:', fetchError);
-          // Fallback to direct URL as last resort
-          console.log('Attempting to load PDF directly as fallback...');
-          pdfUrl = url;
+          console.error('Failed to fetch PDF through authenticated proxy:', fetchError);
+          
+          // Check if it's an authentication error
+          if (fetchError.message?.includes('Not authenticated') || 
+              fetchError.message?.includes('authentication required')) {
+            throw new Error('Authentication required: Please log in to view this PDF file.');
+          }
+          
+          // For other errors, provide a more helpful message
+          throw new Error(`Failed to load PDF: ${fetchError.message}`);
         }
       }
       
@@ -104,12 +80,12 @@ const PdfViewer: React.FC<PdfViewerProps> = ({
       setLoading(false);
     } catch (err: any) {
       console.error('Error loading PDF:', err);
-      setError(`Failed to load PDF: ${err.message}`);
+      setError(err.message || `Failed to load PDF: ${err.message}`);
       setLoading(false);
     }
-  };
+  }, [url, blobUrl]);
 
-  const renderPage = async (num: number) => {
+  const renderPage = useCallback(async (num: number) => {
     if (!pdfDoc || !canvasRef.current) return;
 
     try {
@@ -133,7 +109,24 @@ const PdfViewer: React.FC<PdfViewerProps> = ({
       console.error('Error rendering page:', err);
       setError(`Failed to render page: ${err.message}`);
     }
-  };
+  }, [pdfDoc, scale]);
+
+  useEffect(() => {
+    loadPdf();
+    
+    // Cleanup blob URL on unmount or URL change
+    return () => {
+      if (blobUrl) {
+        URL.revokeObjectURL(blobUrl);
+      }
+    };
+  }, [url, loadPdf, blobUrl]);
+
+  useEffect(() => {
+    if (pdfDoc) {
+      renderPage(pageNum);
+    }
+  }, [pdfDoc, pageNum, scale, renderPage]);
 
   const goToNextPage = () => {
     if (pageNum < totalPages) {

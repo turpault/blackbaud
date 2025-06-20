@@ -1,0 +1,56 @@
+{
+  "common": {
+    "loading": "Loading...",
+    "loadingContent": "Loading content...",
+    "checkingAuth": "Checking authentication..."
+  },
+  "home": {
+    "title": "🚀 Blackbaud OAuth App",
+    "subtitle": "Connect securely with Blackbaud's API using OAuth 2.0 authentication. This application demonstrates a complete OAuth flow with modern React practices.",
+    "features": {
+      "secure": {
+        "title": "🔒 Secure",
+        "description": "OAuth 2.0 with PKCE and state verification"
+      },
+      "fast": {
+        "title": "⚡ Fast",
+        "description": "Modern React with efficient state management"
+      },
+      "beautiful": {
+        "title": "🎨 Beautiful",
+        "description": "Clean UI with smooth animations"
+      }
+    },
+    "integration": {
+      "title": "Direct API Integration:",
+      "directApi": "🔗 Direct Blackbaud API calls",
+      "clientOauth": "🔐 Client-side OAuth 2.0 flow",
+      "secureStorage": "💾 Secure token storage",
+      "autoRefresh": "🔄 Automatic token refresh"
+    }
+  },
+  "login": {
+    "buttonText": "🔐 Login with Blackbaud",
+    "clickToAuth": "Click to authenticate with your Blackbaud account",
+    "secureAuth": "Secure OAuth2 authentication via proxy server",
+    "buttonTitle": "Login with Blackbaud OAuth2"
+  },
+  "dashboard": {
+    "title": "🎯 Raiser's Edge NXT Dashboard",
+    "subtitle": "You have successfully authenticated with Blackbaud!",
+    "logoutPage": "Logout Page",
+    "quickLogout": "Quick Logout",
+    "quickLogoutTitle": "Quick logout",
+    "tabs": {
+      "gifts": "Gifts",
+      "cacheStats": "Cache Statistics",
+      "lists": "Lists",
+      "queries": "Queries",
+      "profile": "Profile"
+    },
+    "profile": {
+      "title": "👤 Profile Information",
+      "notAvailable": "Profile information is not available."
+    }
+  }
+} 

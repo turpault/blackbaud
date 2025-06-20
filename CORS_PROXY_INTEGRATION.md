@@ -67,8 +67,6 @@ fetchBlackbaudFile(url: string): Promise<Response>
 // Download file through proxy
 downloadBlackbaudFile(url: string, filename?: string): Promise<void>
 
-// Open file in new tab through proxy
-openBlackbaudFile(url: string): void
 ```
 
 ### PdfViewer Component Integration
@@ -127,16 +125,6 @@ const handleDownload = async () => {
   } catch (error) {
     console.error('Download failed:', error);
   }
-};
-```
-
-### Opening Files in New Tab
-
-```typescript
-import { openBlackbaudFile } from '../utils/corsProxy';
-
-const handleOpen = () => {
-  openBlackbaudFile('https://fil-pcan01.app.blackbaud.net/forms/application.pdf');
 };
 ```
 

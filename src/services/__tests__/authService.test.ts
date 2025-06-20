@@ -292,12 +292,12 @@ describe('AuthService', () => {
       const mockError = new Error('Test error');
       const mockQueryFn = jest.fn().mockRejectedValue(mockError);
 
-      try {
-        await authService.executeQuery(mockQueryFn, 'test operation');
-      } catch (error: any) {
-        expect(error.originalError).toBe(mockError);
-        expect(error.isRateLimit).toBe(false);
-      }
+      await expect(
+        authService.executeQuery(mockQueryFn, 'test operation')
+      ).rejects.toMatchObject({
+        originalError: mockError,
+        isRateLimit: false
+      });
     });
   });
 

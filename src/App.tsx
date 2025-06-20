@@ -1,6 +1,8 @@
 import React, { useEffect, useState, Suspense } from "react";
 import { Routes, Route, Navigate } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import authService, { SessionInfo } from "./services/authService";
+import LanguageSelector from "./components/LanguageSelector";
 
 // Lazy load all page components
 const Home = React.lazy(() => import("./components/Home"));
@@ -8,7 +10,8 @@ const Dashboard = React.lazy(() => import("./components/Dashboard"));
 const Logout = React.lazy(() => import("./components/Logout"));
 
 // Loading component for Suspense fallback
-const LoadingFallback: React.FC<{ message?: string }> = ({ message = "Loading..." }) => {
+const LoadingFallback: React.FC<{ message?: string }> = ({ message }) => {
+  const { t } = useTranslation();
   const loadingContainerStyle: React.CSSProperties = {
     display: "flex",
     flexDirection: "column",
@@ -32,7 +35,7 @@ const LoadingFallback: React.FC<{ message?: string }> = ({ message = "Loading...
   return (
     <div style={loadingContainerStyle}>
       <div style={spinnerStyle} />
-      <p>{message}</p>
+      <p>{message || t('common.loading')}</p>
       <style>{`
         @keyframes spin {
           0% {
@@ -48,6 +51,7 @@ const LoadingFallback: React.FC<{ message?: string }> = ({ message = "Loading...
 };
 
 const App: React.FC = () => {
+  const { t } = useTranslation();
   const [sessionInfo, setSessionInfo] = useState<SessionInfo | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
 
@@ -92,7 +96,7 @@ const App: React.FC = () => {
     return (
       <div style={loadingContainerStyle}>
         <div style={spinnerStyle} />
-        <p>Checking authentication...</p>
+        <p>{t('common.checkingAuth')}</p>
         <style>{`
           @keyframes spin {
             0% {
@@ -111,7 +115,8 @@ const App: React.FC = () => {
 
   return (
     <div className="App">
-      <Suspense fallback={<LoadingFallback message="Loading page..." />}>
+      <LanguageSelector />
+      <Suspense fallback={<LoadingFallback message={t('common.loadingContent')} />}>
         <Routes>
           <Route
             path="/"

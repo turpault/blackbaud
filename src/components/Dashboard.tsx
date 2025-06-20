@@ -1,5 +1,6 @@
 import React, { useState, useEffect, Suspense } from "react";
 import { Link, useParams, useNavigate } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import authService, { SessionInfo } from "../services/authService";
 
 // Lazy load the GiftList component since it's large
@@ -10,6 +11,7 @@ const Queries = React.lazy(() => import("./Queries"));
 
 // Loading component for tab content
 const TabLoadingFallback: React.FC = () => {
+  const { t } = useTranslation();
   const loadingStyle: React.CSSProperties = {
     display: "flex",
     flexDirection: "column",
@@ -33,7 +35,7 @@ const TabLoadingFallback: React.FC = () => {
   return (
     <div style={loadingStyle}>
       <div style={spinnerStyle} />
-      <p>Loading content...</p>
+      <p>{t('common.loadingContent')}</p>
       <style>{`
         @keyframes spin {
           0% { transform: rotate(0deg); }
@@ -49,16 +51,17 @@ interface DashboardProps {
 }
 
 const Dashboard: React.FC<DashboardProps> = ({ sessionInfo }) => {
+  const { t } = useTranslation();
   const { tab } = useParams<{ tab?: string }>();
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<string>(tab || "gifts");
 
   const tabs = [
-    { id: "gifts", label: "Gifts", icon: "🎁" },
-    { id: "cache-stats", label: "Cache Statistics", icon: "📊" },
-    { id: "lists", label: "Lists", icon: "📝" },
-    { id: "queries", label: "Queries", icon: "🔍" },
-    { id: "profile", label: "Profile", icon: "👤" },
+    { id: "gifts", label: t('dashboard.tabs.gifts'), icon: "🎁" },
+    { id: "lists", label: t('dashboard.tabs.lists'), icon: "📝" },
+    { id: "queries", label: t('dashboard.tabs.queries'), icon: "🔍" },
+    { id: "profile", label: t('dashboard.tabs.profile'), icon: "👤" },
+    { id: "cache-stats", label: t('dashboard.tabs.cacheStats'), icon: "📊" },
   ];
 
   // Sync activeTab with URL parameter
@@ -142,19 +145,11 @@ const Dashboard: React.FC<DashboardProps> = ({ sessionInfo }) => {
     borderBottom: "3px solid #0066cc",
   };
 
-  const cardStyle: React.CSSProperties = {
-    backgroundColor: "#f8f9fa",
-    padding: "20px",
-    borderRadius: "10px",
-    marginTop: "20px",
-    border: "1px solid #e9ecef",
-  };
-
   return (
     <div style={containerStyle}>
       <div style={headerStyle}>
-        <h1>🎯 Raiser's Edge NXT Dashboard</h1>
-        <p>You have successfully authenticated with Blackbaud!</p>
+        <h1>{t('dashboard.title')}</h1>
+        <p>{t('dashboard.subtitle')}</p>
         <div style={{ float: "right", display: "flex", gap: "10px" }}>
           <Link
             to="/logout"
@@ -166,16 +161,16 @@ const Dashboard: React.FC<DashboardProps> = ({ sessionInfo }) => {
             onMouseOver={(e) => (e.currentTarget.style.opacity = "0.8")}
             onMouseOut={(e) => (e.currentTarget.style.opacity = "1")}
           >
-            Logout Page
+            {t('dashboard.logoutPage')}
           </Link>
           <button
             onClick={handleLogout}
             style={buttonStyle}
             onMouseOver={handleMouseOver}
             onMouseOut={handleMouseOut}
-            title="Quick logout"
+            title={t('dashboard.quickLogoutTitle')}
           >
-            Quick Logout
+            {t('dashboard.quickLogout')}
           </button>
         </div>
         <div style={{ clear: "both" }}></div>
@@ -211,8 +206,8 @@ const Dashboard: React.FC<DashboardProps> = ({ sessionInfo }) => {
           {activeTab === "queries" && <Queries />}
           {activeTab === "profile" && (
             <div style={{ textAlign: "center", padding: "40px" }}>
-              <h3>👤 Profile Information</h3>
-              <p>Profile information is not available.</p>
+              <h3>{t('dashboard.profile.title')}</h3>
+              <p>{t('dashboard.profile.notAvailable')}</p>
             </div>
           )}
         </Suspense>

@@ -1,0 +1,56 @@
+{
+  "common": {
+    "loading": "Chargement...",
+    "loadingContent": "Chargement du contenu...",
+    "checkingAuth": "Vérification de l'authentification..."
+  },
+  "home": {
+    "title": "🚀 Application OAuth Blackbaud",
+    "subtitle": "Connectez-vous en toute sécurité à l'API de Blackbaud en utilisant l'authentification OAuth 2.0. Cette application démontre un flux OAuth complet avec des pratiques React modernes.",
+    "features": {
+      "secure": {
+        "title": "🔒 Sécurisé",
+        "description": "OAuth 2.0 avec PKCE et vérification d'état"
+      },
+      "fast": {
+        "title": "⚡ Rapide",
+        "description": "React moderne avec gestion d'état efficace"
+      },
+      "beautiful": {
+        "title": "🎨 Magnifique",
+        "description": "Interface utilisateur épurée avec animations fluides"
+      }
+    },
+    "integration": {
+      "title": "Intégration API directe :",
+      "directApi": "🔗 Appels d'API Blackbaud directs",
+      "clientOauth": "🔐 Flux OAuth 2.0 côté client",
+      "secureStorage": "💾 Stockage de jetons sécurisé",
+      "autoRefresh": "🔄 Actualisation automatique des jetons"
+    }
+  },
+  "login": {
+    "buttonText": "🔐 Se connecter avec Blackbaud",
+    "clickToAuth": "Cliquez pour vous authentifier avec votre compte Blackbaud",
+    "secureAuth": "Authentification OAuth2 sécurisée via serveur proxy",
+    "buttonTitle": "Se connecter avec Blackbaud OAuth2"
+  },
+  "dashboard": {
+    "title": "🎯 Tableau de bord Raiser's Edge NXT",
+    "subtitle": "Vous vous êtes authentifié avec succès avec Blackbaud !",
+    "logoutPage": "Page de déconnexion",
+    "quickLogout": "Déconnexion rapide",
+    "quickLogoutTitle": "Déconnexion rapide",
+    "tabs": {
+      "gifts": "Dons",
+      "cacheStats": "Statistiques du cache",
+      "lists": "Listes",
+      "queries": "Requêtes",
+      "profile": "Profil"
+    },
+    "profile": {
+      "title": "👤 Informations du profil",
+      "notAvailable": "Les informations du profil ne sont pas disponibles."
+    }
+  }
+} 

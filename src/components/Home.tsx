@@ -1,7 +1,9 @@
 import React from "react";
+import { useTranslation } from "react-i18next";
 import LoginButton from "./LoginButton";
 
 const Home: React.FC = () => {
+  const { t } = useTranslation();
   const containerStyle: React.CSSProperties = {
     display: "flex",
     flexDirection: "column",
@@ -59,41 +61,39 @@ const Home: React.FC = () => {
   return (
     <div style={containerStyle}>
       <div style={cardStyle}>
-        <h1 style={titleStyle}>🚀 Blackbaud OAuth App</h1>
+        <h1 style={titleStyle}>{t('home.title')}</h1>
         <p style={subtitleStyle}>
-          Connect securely with Blackbaud's API using OAuth 2.0 authentication.
-          This application demonstrates a complete OAuth flow with modern React
-          practices.
+          {t('home.subtitle')}
         </p>
 
         <LoginButton />
 
         <div style={featureStyle}>
           <div style={featureItemStyle}>
-            <h3>🔒 Secure</h3>
-            <p>OAuth 2.0 with PKCE and state verification</p>
+            <h3>{t('home.features.secure.title')}</h3>
+            <p>{t('home.features.secure.description')}</p>
           </div>
           <div style={featureItemStyle}>
-            <h3>⚡ Fast</h3>
-            <p>Modern React with efficient state management</p>
+            <h3>{t('home.features.fast.title')}</h3>
+            <p>{t('home.features.fast.description')}</p>
           </div>
           <div style={featureItemStyle}>
-            <h3>🎨 Beautiful</h3>
-            <p>Clean UI with smooth animations</p>
+            <h3>{t('home.features.beautiful.title')}</h3>
+            <p>{t('home.features.beautiful.description')}</p>
           </div>
         </div>
 
         <div style={{ marginTop: "30px", fontSize: "14px", color: "#888" }}>
           <p>
-            <strong>Direct API Integration:</strong>
+            <strong>{t('home.integration.title')}</strong>
             <br />
-            🔗 Direct Blackbaud API calls
+            {t('home.integration.directApi')}
             <br />
-            🔐 Client-side OAuth 2.0 flow
+            {t('home.integration.clientOauth')}
             <br />
-            💾 Secure token storage
+            {t('home.integration.secureStorage')}
             <br />
-            🔄 Automatic token refresh
+            {t('home.integration.autoRefresh')}
           </p>
         </div>
       </div>

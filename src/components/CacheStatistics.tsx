@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { getCacheStats, clearCache, cleanExpiredCache } from "../utils/cacheDecorator";
 
 interface CacheStatsData {
@@ -20,7 +20,20 @@ const CacheStatistics: React.FC = () => {
   const [autoRefresh, setAutoRefresh] = useState<boolean>(true);
 
   // Known cache prefixes from our implementation
-  const knownPrefixes = ['gifts', 'getGiftAttachments', 'lists', 'queries', 'getConstituent'];
+  const knownPrefixes = useMemo(() => ['gifts', 'getGiftAttachments', 'lists', 'queries', 'getConstituent'], []);
+
+  const updateStats = useCallback(() => {
+    // Get global stats
+    const stats = getCacheStats();
+    setGlobalStats(stats);
+
+    // Get stats for each known prefix
+    const prefixData: PrefixStats = {};
+    knownPrefixes.forEach(prefix => {
+      prefixData[prefix] = getCacheStats(prefix);
+    });
+    setPrefixStats(prefixData);
+  }, [knownPrefixes]);
 
   useEffect(() => {
     updateStats();
@@ -33,20 +46,7 @@ const CacheStatistics: React.FC = () => {
     return () => {
       if (interval) clearInterval(interval);
     };
-  }, [autoRefresh, refreshInterval]);
-
-  const updateStats = () => {
-    // Get global stats
-    const stats = getCacheStats();
-    setGlobalStats(stats);
-
-    // Get stats for each known prefix
-    const prefixData: PrefixStats = {};
-    knownPrefixes.forEach(prefix => {
-      prefixData[prefix] = getCacheStats(prefix);
-    });
-    setPrefixStats(prefixData);
-  };
+  }, [autoRefresh, refreshInterval, updateStats]);
 
   const handleClearCache = async (prefix?: string) => {
     const clearedCount = clearCache(prefix);

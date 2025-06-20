@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import authService from "../services/authService";
 
@@ -65,18 +65,7 @@ const Lists: React.FC = () => {
     { value: 'Appeal', label: 'Appeal' }
   ];
 
-  useEffect(() => {
-    fetchLists();
-  }, []);
-
-  // Refetch lists when list type filter changes
-  useEffect(() => {
-    if (filters.listType !== '') {
-      fetchLists();
-    }
-  }, [filters.listType]);
-
-  const fetchLists = async (reset: boolean = true): Promise<void> => {
+  const fetchLists = useCallback(async (reset: boolean = true): Promise<void> => {
     if (reset) {
       setLoading(true);
       setError(null);
@@ -112,7 +101,18 @@ const Lists: React.FC = () => {
         setLoadingMore(false);
       }
     }
-  };
+  }, [filters.listType]);
+
+  useEffect(() => {
+    fetchLists();
+  }, [fetchLists]);
+
+  // Refetch lists when list type filter changes
+  useEffect(() => {
+    if (filters.listType !== '') {
+      fetchLists();
+    }
+  }, [filters.listType, fetchLists]);
 
   const loadMoreLists = async (): Promise<void> => {
     if (!nextLink || loadingMore) return;

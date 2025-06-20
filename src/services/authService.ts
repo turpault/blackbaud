@@ -309,7 +309,7 @@ class AuthService {
   // Get gift attachments for a specific gift
   @cache({ 
     keyPrefix: 'getGiftAttachments', 
-    expirationMs: 24*60*60*1000, // 24 hours
+    expirationMs: 30*60*1000, // 30 minutes
     keyGenerator: (giftId: string) => `${giftId}`
   })
   async getGiftAttachments(giftId: string): Promise<any> {

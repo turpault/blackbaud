@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { useSearchParams } from "react-router-dom";
 import authService, { ConstituentInfo } from "../services/authService";
 import PdfViewer from "./PdfViewer";
@@ -94,18 +94,42 @@ const GiftList: React.FC = () => {
   const [giftAttachments, setGiftAttachments] = useState<Record<string, GiftAttachment[]>>({});
   const [loadingAttachments, setLoadingAttachments] = useState<Set<string>>(new Set());
 
-  useEffect(() => {
-    fetchGifts();
-  }, []);
-
-  // Refetch gifts when list_id filter changes
-  useEffect(() => {
-    if (filters.list_id !== '') {
-      fetchGifts();
+  const fetchGiftAttachments = useCallback(async (giftId: string): Promise<void> => {
+    // Don't fetch if already loading or already have attachments
+    if (loadingAttachments.has(giftId) || giftAttachments[giftId]) {
+      return;
     }
-  }, [filters.list_id]);
 
-  const fetchGifts = async (reset: boolean = true): Promise<void> => {
+    setLoadingAttachments(prev => new Set(prev).add(giftId));
+
+    try {
+      console.log(`Fetching attachments for gift ${giftId}`);
+      const response = await authService.executeQuery(
+        () => authService.getGiftAttachments(giftId),
+        `fetching attachments for gift ${giftId}`
+      );
+      
+      setGiftAttachments(prev => ({
+        ...prev,
+        [giftId]: response.value || []
+      }));
+    } catch (err: any) {
+      console.error(`Failed to fetch attachments for gift ${giftId}:`, err);
+      // Set empty array to prevent repeated attempts
+      setGiftAttachments(prev => ({
+        ...prev,
+        [giftId]: []
+      }));
+    } finally {
+      setLoadingAttachments(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(giftId);
+        return newSet;
+      });
+    }
+  }, [loadingAttachments, giftAttachments]);
+
+  const fetchGifts = useCallback(async (reset: boolean = true): Promise<void> => {
     if (reset) {
       setLoading(true);
       setError(null);
@@ -160,7 +184,30 @@ const GiftList: React.FC = () => {
         setLoadingMore(false);
       }
     }
-  };
+  }, [filters.list_id]);
+
+  useEffect(() => {
+    fetchGifts();
+  }, [fetchGifts]);
+
+  // Refetch gifts when list_id filter changes
+  useEffect(() => {
+    if (filters.list_id !== '') {
+      fetchGifts();
+    }
+  }, [filters.list_id, fetchGifts]);
+
+  // Load attachments asynchronously for all gifts
+  useEffect(() => {
+    if (gifts.length > 0) {
+      gifts.forEach(gift => {
+        // Only fetch if we don't already have attachments and aren't currently loading
+        if (!giftAttachments[gift.id] && !loadingAttachments.has(gift.id)) {
+          fetchGiftAttachments(gift.id);
+        }
+      });
+    }
+  }, [gifts, fetchGiftAttachments, giftAttachments, loadingAttachments]);
 
   const loadMoreGifts = async (): Promise<void> => {
     if (!nextLink || loadingMore) return;
@@ -179,46 +226,30 @@ const GiftList: React.FC = () => {
       setGifts(prev => [...prev, ...(response.value || [])]);
       setNextLink(response.next_link || null);
       setTotalCount(response.count || 0);
+
+      // Fetch constituent details for newly loaded gifts
+      if (response.value && response.value.length > 0) {
+        const constituentIds = response.value
+          .map(gift => gift.constituent_id)
+          .filter((id): id is string => !!id);
+        
+        if (constituentIds.length > 0) {
+          try {
+            const constituents = await authService.executeQuery(
+              () => authService.getConstituents(constituentIds),
+              'fetching constituent details'
+            );
+            setCachedConstituents(prev => ({ ...prev, ...constituents }));
+          } catch (error) {
+            console.warn('Failed to fetch constituent details:', error);
+          }
+        }
+      }
     } catch (err: any) {
       // Error is already handled by executeQuery, but we still need to catch it
       console.error("Failed to load more gifts:", err);
     } finally {
       setLoadingMore(false);
-    }
-  };
-
-  const fetchGiftAttachments = async (giftId: string): Promise<void> => {
-    // Don't fetch if already loading or already have attachments
-    if (loadingAttachments.has(giftId) || giftAttachments[giftId]) {
-      return;
-    }
-
-    setLoadingAttachments(prev => new Set(prev).add(giftId));
-
-    try {
-      console.log(`Fetching attachments for gift ${giftId}`);
-      const response = await authService.executeQuery(
-        () => authService.getGiftAttachments(giftId),
-        `fetching attachments for gift ${giftId}`
-      );
-      
-      setGiftAttachments(prev => ({
-        ...prev,
-        [giftId]: response.value || []
-      }));
-    } catch (err: any) {
-      console.error(`Failed to fetch attachments for gift ${giftId}:`, err);
-      // Set empty array to prevent repeated attempts
-      setGiftAttachments(prev => ({
-        ...prev,
-        [giftId]: []
-      }));
-    } finally {
-      setLoadingAttachments(prev => {
-        const newSet = new Set(prev);
-        newSet.delete(giftId);
-        return newSet;
-      });
     }
   };
 
@@ -249,7 +280,7 @@ const GiftList: React.FC = () => {
     updateUrlParams(filters, newSortColumn, newSortDirection);
   };
 
-  const getSortValue = (gift: Gift, column: string): any => {
+  const getSortValue = useCallback((gift: Gift, column: string): any => {
     switch (column) {
       case 'id':
         return gift.id;
@@ -261,16 +292,12 @@ const GiftList: React.FC = () => {
         return gift.date ? new Date(gift.date).getTime() : 0;
       case 'type':
         return gift.type || '';
+      case 'subtype':
+        return gift.subtype || '';
       case 'status':
         return gift.gift_status || '';
-      case 'fund':
-        return gift.fund?.description || '';
-      case 'campaign':
-        return gift.campaign?.description || '';
-      case 'appeal':
-        return gift.appeal?.description || '';
-      case 'receipt_amount':
-        return gift.receipt_amount?.value || 0;
+      case 'designation':
+        return gift.designation || '';
       case 'receipt_date':
         return gift.receipt_date ? new Date(gift.receipt_date).getTime() : 0;
       case 'batch_number':
@@ -284,7 +311,7 @@ const GiftList: React.FC = () => {
       default:
         return '';
     }
-  };
+  }, [cachedConstituents]);
 
   const filteredGifts = React.useMemo(() => {
     return gifts.filter(gift => {
@@ -318,14 +345,7 @@ const GiftList: React.FC = () => {
 
       return sortDirection === 'asc' ? comparison : -comparison;
     });
-  }, [filteredGifts, sortColumn, sortDirection]);
-
-  const getSortIndicator = (column: string): string => {
-    if (sortColumn !== column) return '';
-    if (sortDirection === 'asc') return ' ↑';
-    if (sortDirection === 'desc') return ' ↓';
-    return '';
-  };
+  }, [filteredGifts, sortColumn, sortDirection, getSortValue]);
 
   const uniqueTypes = React.useMemo(() => {
     const types = gifts
@@ -394,8 +414,6 @@ const GiftList: React.FC = () => {
       newExpanded.delete(giftId);
     } else {
       newExpanded.add(giftId);
-      // Fetch attachments when expanding a row
-      fetchGiftAttachments(giftId);
     }
     setExpandedRows(newExpanded);
   };
@@ -693,49 +711,6 @@ const GiftList: React.FC = () => {
     color: "#333",
   };
 
-  const tableStyle: React.CSSProperties = {
-    width: "100%",
-    borderCollapse: "collapse",
-    fontSize: "14px",
-    backgroundColor: "white",
-    borderRadius: "8px",
-    overflow: "hidden",
-    boxShadow: "0 2px 8px rgba(0,0,0,0.1)",
-  };
-
-  const thStyle: React.CSSProperties = {
-    backgroundColor: "#f8f9fa",
-    padding: "12px 8px",
-    textAlign: "left",
-    fontWeight: "bold",
-    borderBottom: "2px solid #dee2e6",
-    position: "sticky",
-    top: 0,
-    zIndex: 10,
-    cursor: "pointer",
-    userSelect: "none",
-    transition: "background-color 0.2s",
-  };
-
-  const thHoverStyle: React.CSSProperties = {
-    backgroundColor: "#e9ecef",
-  };
-
-  const tdStyle: React.CSSProperties = {
-    padding: "12px 8px",
-    borderBottom: "1px solid #dee2e6",
-    verticalAlign: "top",
-  };
-
-  const expandButtonStyle: React.CSSProperties = {
-    background: "none",
-    border: "none",
-    cursor: "pointer",
-    fontSize: "16px",
-    color: "#0066cc",
-    padding: "4px",
-  };
-
   if (loading) {
     return (
       <div style={containerStyle}>
@@ -858,7 +833,7 @@ const GiftList: React.FC = () => {
         </div>
       )}
 
-      {/* Filter Controls */}
+      {/* Filter and Sort Controls */}
       <div style={{
         marginBottom: "20px",
         padding: "15px",
@@ -930,6 +905,48 @@ const GiftList: React.FC = () => {
           </select>
         </div>
 
+        <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+          <label style={{ fontWeight: "bold", fontSize: "14px" }}>Sort by:</label>
+          <select
+            value={sortColumn || ''}
+            onChange={(e) => handleSort(e.target.value)}
+            style={{
+              padding: "6px 10px",
+              border: "1px solid #ced4da",
+              borderRadius: "4px",
+              fontSize: "14px",
+              minWidth: "140px"
+            }}
+          >
+            <option value="">No sorting</option>
+            <option value="amount">Amount</option>
+            <option value="date">Date</option>
+            <option value="constituent">Constituent</option>
+            <option value="type">Type</option>
+            <option value="status">Status</option>
+            <option value="fund">Fund</option>
+            <option value="campaign">Campaign</option>
+            <option value="appeal">Appeal</option>
+          </select>
+          {sortColumn && (
+            <button
+              onClick={() => handleSort(sortColumn)}
+              style={{
+                padding: "6px 8px",
+                backgroundColor: "#007bff",
+                color: "white",
+                border: "none",
+                borderRadius: "4px",
+                cursor: "pointer",
+                fontSize: "12px"
+              }}
+              title={`Currently sorted ${sortDirection}ending - click to change`}
+            >
+              {sortDirection === 'asc' ? '↑' : '↓'}
+            </button>
+          )}
+        </div>
+
         {(filters.type || filters.status || filters.subtype || filters.list_id) && (
           <button
             onClick={clearFilters}
@@ -960,288 +977,394 @@ const GiftList: React.FC = () => {
         </div>
       ) : (
         <>
-          <div style={{ overflowX: "auto" }}>
-            <table style={tableStyle}>
-              <thead>
-                <tr>
-                  <th style={{ ...thStyle, cursor: 'default' }}>Actions</th>
-                  <th 
-                    style={thStyle} 
-                    onClick={() => handleSort('id')}
-                    onMouseEnter={(e) => Object.assign(e.currentTarget.style, thHoverStyle)}
-                    onMouseLeave={(e) => Object.assign(e.currentTarget.style, thStyle)}
-                  >
-                    ID{getSortIndicator('id')}
-                  </th>
-                  <th 
-                    style={thStyle} 
-                    onClick={() => handleSort('constituent')}
-                    onMouseEnter={(e) => Object.assign(e.currentTarget.style, thHoverStyle)}
-                    onMouseLeave={(e) => Object.assign(e.currentTarget.style, thStyle)}
-                  >
-                    Constituent{getSortIndicator('constituent')}
-                  </th>
-                  <th 
-                    style={thStyle} 
-                    onClick={() => handleSort('amount')}
-                    onMouseEnter={(e) => Object.assign(e.currentTarget.style, thHoverStyle)}
-                    onMouseLeave={(e) => Object.assign(e.currentTarget.style, thStyle)}
-                  >
-                    Amount{getSortIndicator('amount')}
-                  </th>
-                  <th 
-                    style={thStyle} 
-                    onClick={() => handleSort('date')}
-                    onMouseEnter={(e) => Object.assign(e.currentTarget.style, thHoverStyle)}
-                    onMouseLeave={(e) => Object.assign(e.currentTarget.style, thStyle)}
-                  >
-                    Date{getSortIndicator('date')}
-                  </th>
-                  <th 
-                    style={thStyle} 
-                    onClick={() => handleSort('type')}
-                    onMouseEnter={(e) => Object.assign(e.currentTarget.style, thHoverStyle)}
-                    onMouseLeave={(e) => Object.assign(e.currentTarget.style, thStyle)}
-                  >
-                    Type{getSortIndicator('type')}
-                  </th>
-                  <th 
-                    style={thStyle} 
-                    onClick={() => handleSort('status')}
-                    onMouseEnter={(e) => Object.assign(e.currentTarget.style, thHoverStyle)}
-                    onMouseLeave={(e) => Object.assign(e.currentTarget.style, thStyle)}
-                  >
-                    Status{getSortIndicator('status')}
-                  </th>
-                  <th 
-                    style={thStyle} 
-                    onClick={() => handleSort('fund')}
-                    onMouseEnter={(e) => Object.assign(e.currentTarget.style, thHoverStyle)}
-                    onMouseLeave={(e) => Object.assign(e.currentTarget.style, thStyle)}
-                  >
-                    Fund{getSortIndicator('fund')}
-                  </th>
-                  <th 
-                    style={thStyle} 
-                    onClick={() => handleSort('campaign')}
-                    onMouseEnter={(e) => Object.assign(e.currentTarget.style, thHoverStyle)}
-                    onMouseLeave={(e) => Object.assign(e.currentTarget.style, thStyle)}
-                  >
-                    Campaign{getSortIndicator('campaign')}
-                  </th>
-                  <th 
-                    style={thStyle} 
-                    onClick={() => handleSort('appeal')}
-                    onMouseEnter={(e) => Object.assign(e.currentTarget.style, thHoverStyle)}
-                    onMouseLeave={(e) => Object.assign(e.currentTarget.style, thStyle)}
-                  >
-                    Appeal{getSortIndicator('appeal')}
-                  </th>
-                  <th 
-                    style={thStyle} 
-                    onClick={() => handleSort('receipt_amount')}
-                    onMouseEnter={(e) => Object.assign(e.currentTarget.style, thHoverStyle)}
-                    onMouseLeave={(e) => Object.assign(e.currentTarget.style, thStyle)}
-                  >
-                    Receipt Amount{getSortIndicator('receipt_amount')}
-                  </th>
-                  <th 
-                    style={thStyle} 
-                    onClick={() => handleSort('receipt_date')}
-                    onMouseEnter={(e) => Object.assign(e.currentTarget.style, thHoverStyle)}
-                    onMouseLeave={(e) => Object.assign(e.currentTarget.style, thStyle)}
-                  >
-                    Receipt Date{getSortIndicator('receipt_date')}
-                  </th>
-                  <th 
-                    style={thStyle} 
-                    onClick={() => handleSort('batch_number')}
-                    onMouseEnter={(e) => Object.assign(e.currentTarget.style, thHoverStyle)}
-                    onMouseLeave={(e) => Object.assign(e.currentTarget.style, thStyle)}
-                  >
-                    Batch #{getSortIndicator('batch_number')}
-                  </th>
-                  <th 
-                    style={thStyle} 
-                    onClick={() => handleSort('reference')}
-                    onMouseEnter={(e) => Object.assign(e.currentTarget.style, thHoverStyle)}
-                    onMouseLeave={(e) => Object.assign(e.currentTarget.style, thStyle)}
-                  >
-                    Reference{getSortIndicator('reference')}
-                  </th>
-                  <th 
-                    style={thStyle} 
-                    onClick={() => handleSort('anonymous')}
-                    onMouseEnter={(e) => Object.assign(e.currentTarget.style, thHoverStyle)}
-                    onMouseLeave={(e) => Object.assign(e.currentTarget.style, thStyle)}
-                  >
-                    Anonymous{getSortIndicator('anonymous')}
-                  </th>
-                  <th 
-                    style={thStyle} 
-                    onClick={() => handleSort('attachments')}
-                    onMouseEnter={(e) => Object.assign(e.currentTarget.style, thHoverStyle)}
-                    onMouseLeave={(e) => Object.assign(e.currentTarget.style, thStyle)}
-                  >
-                    Attachments{getSortIndicator('attachments')}
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {sortedGifts.map((gift) => (
-                  <React.Fragment key={gift.id}>
-                    <tr>
-                      <td style={tdStyle}>
-                        <button
-                          style={expandButtonStyle}
-                          onClick={() => toggleRowExpansion(gift.id)}
-                          title="Toggle details"
-                        >
-                          {expandedRows.has(gift.id) ? "▼" : "▶"}
-                        </button>
-                      </td>
-                      <td style={tdStyle}>{gift.id}</td>
-                      <td style={tdStyle}>
+          {/* Cards Grid */}
+          <div style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(auto-fill, minmax(600px, 1fr))",
+            gap: "20px",
+            marginBottom: "20px"
+          }}>
+            {sortedGifts.map((gift) => (
+              <div
+                key={gift.id}
+                style={{
+                  backgroundColor: "white",
+                  borderRadius: "12px",
+                  boxShadow: "0 4px 12px rgba(0, 0, 0, 0.1)",
+                  border: "1px solid #e9ecef",
+                  overflow: "hidden",
+                  transition: "transform 0.2s, box-shadow 0.2s",
+                  cursor: "pointer"
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.transform = "translateY(-2px)";
+                  e.currentTarget.style.boxShadow = "0 8px 24px rgba(0, 0, 0, 0.15)";
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.transform = "translateY(0)";
+                  e.currentTarget.style.boxShadow = "0 4px 12px rgba(0, 0, 0, 0.1)";
+                }}
+                onClick={() => toggleRowExpansion(gift.id)}
+              >
+                {/* Card Header - Constituent Name */}
+                <div style={{
+                  padding: "16px 20px 12px",
+                  borderBottom: "1px solid #f0f0f0",
+                  backgroundColor: "#f8f9fa"
+                }}>
+                  <div style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "flex-start"
+                  }}>
+                    <div style={{ flex: 1 }}>
+                      <h3 style={{
+                        margin: 0,
+                        fontSize: "18px",
+                        fontWeight: "bold",
+                        color: "#2c3e50",
+                        marginBottom: "4px"
+                      }}>
                         {gift.constituent_id ? (
-                          <div>
-                            <div style={{ fontWeight: "bold" }}>
-                              {cachedConstituents[gift.constituent_id]?.name || "Loading..."}
-                            </div>
+                          <>
+                            {cachedConstituents[gift.constituent_id]?.name || "Loading..."}
                             {cachedConstituents[gift.constituent_id]?.lookup_id && (
-                              <div style={{ fontSize: "12px", color: "#666" }}>
-                                ID: {cachedConstituents[gift.constituent_id]?.lookup_id}
-                              </div>
+                              <span style={{
+                                fontSize: "12px",
+                                color: "#6c757d",
+                                marginLeft: "8px",
+                                fontWeight: "normal"
+                              }}>
+                                (ID: {cachedConstituents[gift.constituent_id]?.lookup_id})
+                              </span>
                             )}
-                          </div>
+                          </>
                         ) : (
-                          "N/A"
+                          <span style={{ color: "#6c757d" }}>No constituent</span>
                         )}
-                      </td>
-                      <td style={tdStyle}>{formatCurrency(gift.amount)}</td>
-                      <td style={tdStyle}>{formatDate(gift.date)}</td>
-                      <td style={tdStyle}>
-                        <div>{gift.type || "N/A"}</div>
+                      </h3>
+                      <p style={{
+                        margin: "4px 0 0",
+                        fontSize: "12px",
+                        color: "#6c757d",
+                        fontFamily: "monospace"
+                      }}>
+                        Gift ID: {gift.id}
+                      </p>
+                    </div>
+                    <div style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "8px"
+                    }}>
+                      {gift.is_anonymous && (
+                        <span style={{
+                          backgroundColor: "#ffc107",
+                          color: "#212529",
+                          padding: "2px 6px",
+                          borderRadius: "12px",
+                          fontSize: "11px",
+                          fontWeight: "bold"
+                        }}>
+                          ANON
+                        </span>
+                      )}
+                      <button
+                        style={{
+                          background: "none",
+                          border: "none",
+                          cursor: "pointer",
+                          fontSize: "16px",
+                          color: "#007bff",
+                          padding: "4px"
+                        }}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          toggleRowExpansion(gift.id);
+                        }}
+                      >
+                        {expandedRows.has(gift.id) ? "▼" : "▶"}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Card Body */}
+                <div style={{ padding: "16px 20px" }}>
+                  {/* Amount - Now prominent in body */}
+                  <div style={{ marginBottom: "16px" }}>
+                    <div style={{
+                      fontSize: "24px",
+                      fontWeight: "bold",
+                      color: "#28a745",
+                      marginBottom: "4px"
+                    }}>
+                      {formatCurrency(gift.amount)}
+                    </div>
+                    <div style={{
+                      fontSize: "12px",
+                      color: "#6c757d"
+                    }}>
+                      Gift Amount
+                    </div>
+                  </div>
+
+                  {/* Key Details Grid */}
+                  <div style={{
+                    display: "grid",
+                    gridTemplateColumns: "1fr 1fr 1fr",
+                    gap: "12px",
+                    fontSize: "14px",
+                    marginBottom: "16px"
+                  }}>
+                    <div>
+                      <div style={{
+                        color: "#6c757d",
+                        fontSize: "12px",
+                        marginBottom: "2px"
+                      }}>
+                        Date
+                      </div>
+                      <div style={{ fontWeight: "500" }}>
+                        {formatDate(gift.date)}
+                      </div>
+                    </div>
+
+                    <div>
+                      <div style={{
+                        color: "#6c757d",
+                        fontSize: "12px",
+                        marginBottom: "2px"
+                      }}>
+                        Type
+                      </div>
+                      <div style={{ fontWeight: "500" }}>
+                        {gift.type || "N/A"}
                         {gift.subtype && (
-                          <div style={{ fontSize: "12px", color: "#666" }}>
+                          <div style={{ fontSize: "11px", color: "#6c757d" }}>
                             {gift.subtype}
                           </div>
                         )}
-                      </td>
-                      <td style={tdStyle}>{gift.gift_status || "N/A"}</td>
-                      <td style={tdStyle}>{gift.fund?.description || "N/A"}</td>
-                      <td style={tdStyle}>
-                        {gift.campaign?.description || "N/A"}
-                      </td>
-                      <td style={tdStyle}>{gift.appeal?.description || "N/A"}</td>
-                      <td style={tdStyle}>
-                        {formatCurrency(gift.receipt_amount)}
-                      </td>
-                      <td style={tdStyle}>{formatDate(gift.receipt_date)}</td>
-                      <td style={tdStyle}>{gift.batch_number || "N/A"}</td>
-                      <td style={tdStyle}>{gift.reference || "N/A"}</td>
-                      <td style={tdStyle}>{gift.is_anonymous ? "Yes" : "No"}</td>
-                      <td style={tdStyle}>
-                        {renderAttachments(gift)}
-                      </td>
-                    </tr>
-                    {expandedRows.has(gift.id) && (
-                      <tr>
-                        <td
-                          colSpan={16}
-                          style={{
-                            ...tdStyle,
-                            backgroundColor: "#f8f9fa",
-                            padding: "20px",
-                          }}
-                        >
-                          <div
-                            style={{
-                              display: "grid",
-                              gridTemplateColumns: "1fr 1fr",
-                              gap: "20px",
-                            }}
-                          >
-                            <div>
-                              <h4>Additional Details</h4>
-                              <p>
-                                <strong>Acknowledgement Status:</strong>{" "}
-                                {gift.acknowledgement_status || "N/A"}
-                              </p>
-                              <p>
-                                <strong>Acknowledgement Date:</strong>{" "}
-                                {formatDate(gift.acknowledgement_date)}
-                              </p>
-                              <p>
-                                <strong>Gift Aid Status:</strong>{" "}
-                                {gift.gift_aid_qualification_status || "N/A"}
-                              </p>
-                              <p>
-                                <strong>Date Added:</strong>{" "}
-                                {formatDate(gift.date_added)}
-                              </p>
-                              <p>
-                                <strong>Date Modified:</strong>{" "}
-                                {formatDate(gift.date_modified)}
-                              </p>
-                            </div>
-                            <div>
-                              <h4>Payments & Soft Credits</h4>
-                              {gift.payments && gift.payments.length > 0 ? (
-                                <div>
-                                  <strong>Payments:</strong>
-                                  {gift.payments.map((payment: GiftPayment, index: number) => (
-                                    <div
-                                      key={index}
-                                      style={{
-                                        marginLeft: "10px",
-                                        fontSize: "12px",
-                                      }}
-                                    >
-                                      • Method: {payment.payment_method || "N/A"}
-                                      <br />• Check #:{" "}
-                                      {payment.check_number || "N/A"}
-                                      <br />• Date:{" "}
-                                      {formatDate(payment.check_date)}
-                                    </div>
-                                  ))}
-                                </div>
-                              ) : (
-                                <p>No payment details available</p>
-                              )}
+                      </div>
+                    </div>
 
-                              {gift.soft_credits &&
-                                gift.soft_credits.length > 0 && (
-                                  <div style={{ marginTop: "10px" }}>
-                                    <strong>Soft Credits:</strong>
-                                    {gift.soft_credits.map((credit: SoftCredit, index: number) => (
-                                      <div
-                                        key={index}
-                                        style={{
-                                          marginLeft: "10px",
-                                          fontSize: "12px",
-                                        }}
-                                      >
-                                        • {credit.constituent.name}:{" "}
-                                        {formatCurrency(credit.amount)}
-                                      </div>
-                                    ))}
-                                  </div>
-                                )}
+                    <div>
+                      <div style={{
+                        color: "#6c757d",
+                        fontSize: "12px",
+                        marginBottom: "2px"
+                      }}>
+                        Status
+                      </div>
+                      <div>
+                        <span style={{
+                          padding: "2px 8px",
+                          borderRadius: "12px",
+                          fontSize: "11px",
+                          fontWeight: "bold",
+                          backgroundColor: gift.gift_status === "Active" ? "#d4edda" : "#f8d7da",
+                          color: gift.gift_status === "Active" ? "#155724" : "#721c24"
+                        }}>
+                          {gift.gift_status || "N/A"}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Fund, Campaign & Appeal */}
+                  <div style={{
+                    display: "grid",
+                    gridTemplateColumns: "1fr 1fr 1fr",
+                    gap: "12px",
+                    fontSize: "13px",
+                    marginBottom: "16px"
+                  }}>
+                    <div>
+                      <div style={{
+                        color: "#6c757d",
+                        fontSize: "11px",
+                        marginBottom: "2px"
+                      }}>
+                        Fund
+                      </div>
+                      <div style={{ fontWeight: "500" }}>
+                        {gift.fund?.description || "N/A"}
+                      </div>
+                    </div>
+
+                    <div>
+                      <div style={{
+                        color: "#6c757d",
+                        fontSize: "11px",
+                        marginBottom: "2px"
+                      }}>
+                        Campaign
+                      </div>
+                      <div style={{ fontWeight: "500" }}>
+                        {gift.campaign?.description || "N/A"}
+                      </div>
+                    </div>
+
+                    <div>
+                      <div style={{
+                        color: "#6c757d",
+                        fontSize: "11px",
+                        marginBottom: "2px"
+                      }}>
+                        Appeal
+                      </div>
+                      <div style={{ fontWeight: "500" }}>
+                        {gift.appeal?.description || "N/A"}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Attachments Section - Always visible */}
+                  <div style={{
+                    borderTop: "1px solid #f0f0f0",
+                    paddingTop: "16px"
+                  }}>
+                    <h4 style={{ 
+                      margin: "0 0 12px", 
+                      fontSize: "14px", 
+                      color: "#495057",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "6px"
+                    }}>
+                      📎 Attachments
+                      {loadingAttachments.has(gift.id) && (
+                        <div
+                          style={{
+                            width: "12px",
+                            height: "12px",
+                            border: "2px solid #f3f3f3",
+                            borderTop: "2px solid #2196F3",
+                            borderRadius: "50%",
+                            animation: "spin 1s linear infinite"
+                          }}
+                        />
+                      )}
+                    </h4>
+                    <div onClick={(e) => e.stopPropagation()}>
+                      {renderAttachments(gift)}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Expanded Details */}
+                {expandedRows.has(gift.id) && (
+                  <div style={{
+                    borderTop: "1px solid #f0f0f0",
+                    backgroundColor: "#f8f9fa",
+                    padding: "20px"
+                  }}>
+                    <div style={{
+                      display: "grid",
+                      gridTemplateColumns: "1fr 1fr",
+                      gap: "20px",
+                      marginBottom: "20px"
+                    }}>
+                      <div>
+                        <h4 style={{ margin: "0 0 12px", fontSize: "16px", color: "#495057" }}>
+                          Additional Details
+                        </h4>
+                        <div style={{ fontSize: "13px", lineHeight: "1.5" }}>
+                          <p style={{ margin: "6px 0" }}>
+                            <strong>Acknowledgement Status:</strong>{" "}
+                            {gift.acknowledgement_status || "N/A"}
+                          </p>
+                          <p style={{ margin: "6px 0" }}>
+                            <strong>Acknowledgement Date:</strong>{" "}
+                            {formatDate(gift.acknowledgement_date)}
+                          </p>
+                          <p style={{ margin: "6px 0" }}>
+                            <strong>Receipt Amount:</strong>{" "}
+                            {formatCurrency(gift.receipt_amount)}
+                          </p>
+                          <p style={{ margin: "6px 0" }}>
+                            <strong>Receipt Date:</strong>{" "}
+                            {formatDate(gift.receipt_date)}
+                          </p>
+                          <p style={{ margin: "6px 0" }}>
+                            <strong>Batch #:</strong>{" "}
+                            {gift.batch_number || "N/A"}
+                          </p>
+                          <p style={{ margin: "6px 0" }}>
+                            <strong>Reference:</strong>{" "}
+                            {gift.reference || "N/A"}
+                          </p>
+                          <p style={{ margin: "6px 0" }}>
+                            <strong>Gift Aid Status:</strong>{" "}
+                            {gift.gift_aid_qualification_status || "N/A"}
+                          </p>
+                          <p style={{ margin: "6px 0" }}>
+                            <strong>Date Added:</strong>{" "}
+                            {formatDate(gift.date_added)}
+                          </p>
+                          <p style={{ margin: "6px 0" }}>
+                            <strong>Date Modified:</strong>{" "}
+                            {formatDate(gift.date_modified)}
+                          </p>
+                        </div>
+                      </div>
+                      <div>
+                        <h4 style={{ margin: "0 0 12px", fontSize: "16px", color: "#495057" }}>
+                          Payments & Soft Credits
+                        </h4>
+                        <div style={{ fontSize: "13px", lineHeight: "1.5" }}>
+                          {gift.payments && gift.payments.length > 0 ? (
+                            <div>
+                              <strong>Payments:</strong>
+                              {gift.payments.map((payment: GiftPayment, index: number) => (
+                                <div
+                                  key={index}
+                                  style={{
+                                    marginLeft: "10px",
+                                    marginTop: "4px",
+                                    padding: "6px",
+                                    backgroundColor: "white",
+                                    borderRadius: "4px",
+                                    border: "1px solid #e9ecef"
+                                  }}
+                                >
+                                  • Method: {payment.payment_method || "N/A"}
+                                  <br />• Check #: {payment.check_number || "N/A"}
+                                  <br />• Date: {formatDate(payment.check_date)}
+                                </div>
+                              ))}
                             </div>
-                          </div>
-                          
-                          {/* Detailed Attachments Section */}
-                          <div style={{ marginTop: "20px" }}>
-                            <h4>📎 Attachments</h4>
-                            {renderAttachments(gift)}
-                          </div>
-                        </td>
-                      </tr>
-                    )}
-                  </React.Fragment>
-                ))}
-              </tbody>
-            </table>
+                          ) : (
+                            <p style={{ margin: "6px 0" }}>No payment details available</p>
+                          )}
+
+                          {gift.soft_credits && gift.soft_credits.length > 0 && (
+                            <div style={{ marginTop: "12px" }}>
+                              <strong>Soft Credits:</strong>
+                              {gift.soft_credits.map((credit: SoftCredit, index: number) => (
+                                <div
+                                  key={index}
+                                  style={{
+                                    marginLeft: "10px",
+                                    marginTop: "4px",
+                                    padding: "6px",
+                                    backgroundColor: "white",
+                                    borderRadius: "4px",
+                                    border: "1px solid #e9ecef"
+                                  }}
+                                >
+                                  • {credit.constituent.name}: {formatCurrency(credit.amount)}
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            ))}
           </div>
 
           {/* Load More Button */}

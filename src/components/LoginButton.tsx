@@ -1,7 +1,9 @@
 import React from "react";
+import { useTranslation } from "react-i18next";
 import authService from "../services/authService";
 
 const LoginButton: React.FC = () => {
+  const { t } = useTranslation();
   const handleLogin = (): void => {
     // With server-side OAuth2, we just redirect to the protected app
     // The proxy server will handle the OAuth2 flow automatically
@@ -43,14 +45,14 @@ const LoginButton: React.FC = () => {
         style={buttonStyle}
         onMouseOver={handleMouseOver}
         onMouseOut={handleMouseOut}
-        title="Login with Blackbaud OAuth2"
+        title={t('login.buttonTitle')}
       >
-        🔐 Login with Blackbaud
+        {t('login.buttonText')}
       </button>
       <p style={{ marginTop: "15px", color: "#666", fontSize: "14px" }}>
-        Click to authenticate with your Blackbaud account
+        {t('login.clickToAuth')}
         <br />
-        <small>Secure OAuth2 authentication via proxy server</small>
+        <small>{t('login.secureAuth')}</small>
       </p>
     </div>
   );

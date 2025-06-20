@@ -156,23 +156,6 @@ const ConstituentManager: React.FC<ConstituentManagerProps> = ({ constituentId }
       <h2>🔍 Constituent Manager</h2>
       <p>Demonstrate Blackbaud Constituent API integration with localStorage caching</p>
 
-      {/* Cache Statistics */}
-      <div style={cardStyle}>
-        <h4>📊 Cache Statistics</h4>
-        <p><strong>Cached Constituents:</strong> {cacheStats.count}</p>
-        <p><strong>Cache Size:</strong> {formatBytes(cacheStats.totalSize)}</p>
-        <p><strong>Pending Requests:</strong> {cacheStats.pendingPromises}</p>
-        {cacheStats.oldestEntry && (
-          <p><strong>Oldest Entry:</strong> {cacheStats.oldestEntry.toLocaleString()}</p>
-        )}
-        <button
-          style={dangerButtonStyle}
-          onClick={() => clearCache()}
-        >
-          Clear All Cache
-        </button>
-      </div>
-
       {/* Search Form */}
       <div style={cardStyle}>
         <h4>🔎 Search Constituent</h4>
@@ -299,6 +282,23 @@ const ConstituentManager: React.FC<ConstituentManagerProps> = ({ constituentId }
           </div>
         </div>
       )}
+
+      {/* Cache Statistics */}
+      <div style={cardStyle}>
+        <h4>📊 Cache Statistics</h4>
+        <p><strong>Cached Constituents:</strong> {cacheStats.count}</p>
+        <p><strong>Cache Size:</strong> {formatBytes(cacheStats.totalSize)}</p>
+        <p><strong>Pending Requests:</strong> {cacheStats.pendingPromises}</p>
+        {cacheStats.oldestEntry && (
+          <p><strong>Oldest Entry:</strong> {cacheStats.oldestEntry.toLocaleString()}</p>
+        )}
+        <button
+          style={dangerButtonStyle}
+          onClick={() => clearCache()}
+        >
+          Clear All Cache
+        </button>
+      </div>
     </div>
   );
 };

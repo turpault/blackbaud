@@ -1,84 +1,91 @@
 /**
  * CORS Proxy Utilities for Blackbaud API
  * 
- * This utility helps bypass CORS restrictions when accessing Blackbaud files
- * by routing requests through the proxy server's CORS bypass endpoint.
+ * This utility helps bypass CORS restrictions when accessing external files
+ * by routing requests through the proxy server's dynamic target endpoints.
  */
+
+import authService from '../services/authService';
 
 /**
  * Check if a URL is a Blackbaud file URL that needs CORS proxy
  */
 export const isBlackbaudFileUrl = (url: string): boolean => {
-  return url.includes('fil-pcan01.app.blackbaud.net') || url.includes('blackbaud.net');
+  return url.includes('fil-pcan01.app.blackbaud.net') || 
+         url.includes('api.sky.blackbaud.com') ||
+         url.includes('app.blackbaud.com') ||
+         url.includes('blackbaud.net');
 };
 
 /**
- * Convert a Blackbaud URL to use the CORS proxy
+ * Convert any external URL to use the Blackbaud dynamic proxy
  */
 export const getProxiedUrl = (originalUrl: string): string => {
   if (isBlackbaudFileUrl(originalUrl)) {
-    // Replace the Blackbaud domain with our proxy path
-    const proxiedUrl = originalUrl.replace(
-      'https://fil-pcan01.app.blackbaud.net',
-      '/blackbaud-proxy'
-    );
-    console.log('Using CORS proxy for Blackbaud URL:', { originalUrl, proxiedUrl });
+    // Use the Blackbaud proxy route with dynamic target support
+    const encodedUrl = btoa(originalUrl);
+    const proxiedUrl = `/blackbaud-proxy?url=${encodedUrl}`;
+    console.log('Using dynamic target proxy for URL:', { originalUrl, proxiedUrl });
     return proxiedUrl;
   }
   return originalUrl;
 };
 
 /**
- * Fetch a Blackbaud file through the CORS proxy
+ * Fetch any external file through the dynamic target proxy with authentication
  */
-export const fetchBlackbaudFile = async (url: string): Promise<Response> => {
-  const proxiedUrl = getProxiedUrl(url);
-  
-  const response = await fetch(proxiedUrl, {
-    method: 'GET',
-    headers: {
-      'Accept': 'application/pdf,application/octet-stream,*/*',
-    },
-  });
+export const fetchThroughProxy = async (url: string, options: RequestInit = {}): Promise<Response> => {
+  // For Blackbaud URLs, we need to check if authentication is required
+  if (isBlackbaudFileUrl(url)) {
+    try {
+      // Check authentication status and get session info
+      const session = await authService.checkAuthentication();
+      
+      if (session.authenticated && session.accessToken && session.subscriptionKey) {
+        // Use authenticated request through the proxy with proper headers
+        const proxiedUrl = getProxiedUrl(url);
+        
+        const enhancedOptions = {
+          ...options,
+          headers: {
+            'Accept': 'application/pdf,application/octet-stream,*/*',
+            'Authorization': `${session.tokenType || 'Bearer'} ${session.accessToken}`,
+            'Bb-Api-Subscription-Key': session.subscriptionKey,
+            ...options.headers,
+          },
+        };
 
-  if (!response.ok) {
-    throw new Error(`Failed to fetch file through proxy: ${response.status} ${response.statusText}`);
+        console.log('Making authenticated request through proxy for Blackbaud URL');
+        const response = await fetch(proxiedUrl, enhancedOptions);
+
+        if (!response.ok) {
+          throw new Error(`Failed to fetch file through authenticated proxy: ${response.status} ${response.statusText}`);
+        }
+
+        return response;
+      } else {
+        throw new Error('Not authenticated - authentication required for Blackbaud URLs');
+      }
+    } catch (error: any) {
+      console.error('Authenticated proxy request failed:', error);
+      throw error;
+    }
+  } else {
+    // For non-Blackbaud URLs, use regular fetch
+    const enhancedOptions = {
+      ...options,
+      headers: {
+        'Accept': 'application/pdf,application/octet-stream,*/*',
+        ...options.headers,
+      },
+    };
+
+    const response = await fetch(url, enhancedOptions);
+
+    if (!response.ok) {
+      throw new Error(`Failed to fetch file: ${response.status} ${response.statusText}`);
+    }
+
+    return response;
   }
-
-  return response;
 };
-
-/**
- * Download a Blackbaud file through the CORS proxy
- */
-export const downloadBlackbaudFile = async (url: string, filename?: string): Promise<void> => {
-  try {
-    const response = await fetchBlackbaudFile(url);
-    const blob = await response.blob();
-    
-    // Create a blob URL and trigger download
-    const blobUrl = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = blobUrl;
-    link.download = filename || 'download';
-    
-    // Trigger download
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    
-    // Clean up blob URL
-    URL.revokeObjectURL(blobUrl);
-  } catch (error) {
-    console.error('Error downloading Blackbaud file:', error);
-    throw error;
-  }
-};
-
-/**
- * Open a Blackbaud file in a new tab through the CORS proxy
- */
-export const openBlackbaudFile = (url: string): void => {
-  const proxiedUrl = getProxiedUrl(url);
-  window.open(proxiedUrl, '_blank', 'noopener,noreferrer');
-}; 
