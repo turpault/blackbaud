@@ -22,13 +22,15 @@ interface AttachmentsSectionProps {
   isExpanded: boolean;
   onHandlePdfLoaded: (pdfId: string) => void;
   onHandleImageError: (attachmentId: string) => void;
+  zoomLevel?: number;
 }
 
 const AttachmentsSection: React.FC<AttachmentsSectionProps> = React.memo(({
   giftId,
   isExpanded,
   onHandlePdfLoaded,
-  onHandleImageError
+  onHandleImageError,
+  zoomLevel = 500
 }) => {
   const [attachments, setAttachments] = useState<GiftAttachment[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(false);
@@ -85,6 +87,21 @@ const AttachmentsSection: React.FC<AttachmentsSectionProps> = React.memo(({
 
   const handleImageError = (attachmentId: string): void => {
     setImageErrors(prev => new Set([...Array.from(prev), attachmentId]));
+  };
+
+  const handleDownload = (attachment: GiftAttachment): void => {
+    if (!attachment.url) {
+      console.error('No URL available for download');
+      return;
+    }
+
+    const link = document.createElement('a');
+    link.href = attachment.url;
+    link.download = attachment.name || attachment.file_name || 'attachment';
+    link.target = '_blank';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   };
 
   if (attachments.length === 0 && !isLoading) {
@@ -216,6 +233,28 @@ const AttachmentsSection: React.FC<AttachmentsSectionProps> = React.memo(({
                     {formatFileSize(attachment.file_size)}
                   </span>
                 )}
+
+                {/* Download button */}
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleDownload(attachment);
+                  }}
+                  style={{
+                    padding: "4px 8px",
+                    backgroundColor: "#007bff",
+                    color: "white",
+                    border: "none",
+                    borderRadius: "3px",
+                    cursor: "pointer",
+                    fontSize: "10px",
+                    fontWeight: "bold",
+                    whiteSpace: "nowrap"
+                  }}
+                  title={`Download ${attachment.name || attachment.file_name || 'attachment'}`}
+                >
+                  📥
+                </button>
               </div>
             ))}
           </div>
@@ -270,8 +309,9 @@ const AttachmentsSection: React.FC<AttachmentsSectionProps> = React.memo(({
       ) : (
         <div style={{
           display: "grid",
-          gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))",
-          gap: "12px"
+          gridTemplateColumns: "1fr",
+          gap: "12px",
+          maxWidth: "100%"
         }}>
           {attachments.map((attachment, index) => (
             <div
@@ -280,11 +320,13 @@ const AttachmentsSection: React.FC<AttachmentsSectionProps> = React.memo(({
                 border: "1px solid #e9ecef",
                 borderRadius: "8px",
                 padding: "12px",
-                backgroundColor: "#f8f9fa"
+                backgroundColor: "#f8f9fa",
+                width: "100%",
+                boxSizing: "border-box"
               }}
             >
               <div style={{ marginBottom: "8px" }}>
-                <strong style={{ fontSize: "12px", color: "#495057" }}>
+                <strong style={{ fontSize: "12px", color: "#495057", wordBreak: "break-word" }}>
                   {attachment.name || attachment.file_name || "Unnamed Attachment"}
                 </strong>
               </div>
@@ -316,11 +358,37 @@ const AttachmentsSection: React.FC<AttachmentsSectionProps> = React.memo(({
                   <PdfViewer
                     url={attachment.url || ''}
                     name={attachment.name || attachment.file_name || "PDF Document"}
-                    height={400}
+                    height={Math.max(200, Math.min(600, zoomLevel * 0.8))}
                     width="100%"
                   />
                 </div>
               )}
+
+              {/* Download Button */}
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleDownload(attachment);
+                }}
+                style={{
+                  width: "100%",
+                  padding: "8px 12px",
+                  backgroundColor: "#007bff",
+                  color: "white",
+                  border: "none",
+                  borderRadius: "4px",
+                  cursor: "pointer",
+                  fontSize: "12px",
+                  fontWeight: "bold",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: "6px"
+                }}
+                title={`Download ${attachment.name || attachment.file_name || 'attachment'}`}
+              >
+                📥 Download
+              </button>
             </div>
           ))}
         </div>

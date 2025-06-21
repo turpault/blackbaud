@@ -49,6 +49,7 @@ interface GiftCardProps {
   onHandleImageError: (attachmentId: string) => void;
   formatCurrency: (amount?: { value: number; currency?: string }) => string;
   formatDate: (dateString?: string) => string;
+  zoomLevel?: number;
 }
 
 const GiftCard: React.FC<GiftCardProps> = React.memo(({
@@ -58,7 +59,8 @@ const GiftCard: React.FC<GiftCardProps> = React.memo(({
   onHandlePdfLoaded,
   onHandleImageError,
   formatCurrency,
-  formatDate
+  formatDate,
+  zoomLevel = 500
 }) => {
   const isExpanded = expandedRows.has(gift.id);
 
@@ -188,6 +190,7 @@ const GiftCard: React.FC<GiftCardProps> = React.memo(({
             isExpanded={true}
             onHandlePdfLoaded={onHandlePdfLoaded}
             onHandleImageError={onHandleImageError}
+            zoomLevel={zoomLevel}
           />
         </div>
       </div>

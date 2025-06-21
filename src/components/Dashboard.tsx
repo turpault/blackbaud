@@ -95,7 +95,6 @@ const Dashboard: React.FC<DashboardProps> = ({ sessionInfo }) => {
   };
 
   const containerStyle: React.CSSProperties = {
-    maxWidth: "1400px",
     margin: "0 auto",
     padding: "20px",
     backgroundColor: "rgba(255, 255, 255, 0.95)",

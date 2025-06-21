@@ -67,13 +67,13 @@ const Queries: React.FC = () => {
         'fetching queries',
         (errorMsg) => setError(errorMsg)
       );
-      
+
       if (reset) {
         setQueries(response.value || []);
       } else {
         setQueries(prev => [...prev, ...(response.value || [])]);
       }
-      
+
       setNextLink(response.next_link || null);
       setTotalCount(response.count || 0);
     } catch (err: any) {
@@ -90,7 +90,7 @@ const Queries: React.FC = () => {
 
   const loadMoreQueries = async (): Promise<void> => {
     if (!nextLink || loadingMore) return;
-    
+
     setLoadingMore(true);
     setError(null);
 
@@ -101,7 +101,7 @@ const Queries: React.FC = () => {
         'loading more queries',
         (errorMsg) => setError(errorMsg)
       );
-      
+
       setQueries(prev => [...prev, ...(response.value || [])]);
       setNextLink(response.next_link || null);
       setTotalCount(response.count || 0);
@@ -116,7 +116,7 @@ const Queries: React.FC = () => {
   const handleSort = (column: string): void => {
     let newSortColumn: string | null;
     let newSortDirection: SortDirection;
-    
+
     if (sortColumn === column) {
       // Same column clicked - cycle through asc -> desc -> null
       if (sortDirection === 'asc') {
@@ -134,7 +134,7 @@ const Queries: React.FC = () => {
       newSortColumn = column;
       newSortDirection = 'asc';
     }
-    
+
     setSortColumn(newSortColumn);
     setSortDirection(newSortDirection);
     updateUrlParams(filters, newSortColumn, newSortDirection);
@@ -171,7 +171,7 @@ const Queries: React.FC = () => {
     return queries.filter(query => {
       const typeMatch = !filters.type || (query.type && query.type.toLowerCase().includes(filters.type.toLowerCase()));
       const categoryMatch = !filters.category || (query.category && query.category.toLowerCase().includes(filters.category.toLowerCase()));
-      
+
       return typeMatch && categoryMatch;
     });
   }, [queries, filters]);
@@ -226,15 +226,15 @@ const Queries: React.FC = () => {
   // Update URL parameters when filters change
   const updateUrlParams = (newFilters: Filters, newSortColumn?: string | null, newSortDirection?: SortDirection) => {
     const params = new URLSearchParams();
-    
+
     // Add filters to URL
     if (newFilters.type) params.set('type', newFilters.type);
     if (newFilters.category) params.set('category', newFilters.category);
-    
+
     // Add sorting to URL
     if (newSortColumn) params.set('sortColumn', newSortColumn);
     if (newSortDirection) params.set('sortDirection', newSortDirection);
-    
+
     setSearchParams(params, { replace: true });
   };
 
@@ -501,64 +501,64 @@ const Queries: React.FC = () => {
               <thead>
                 <tr>
                   <th style={{ ...thStyle, cursor: 'default' }}>Actions</th>
-                  <th 
-                    style={thStyle} 
+                  <th
+                    style={thStyle}
                     onClick={() => handleSort('id')}
                     onMouseEnter={(e) => Object.assign(e.currentTarget.style, thHoverStyle)}
                     onMouseLeave={(e) => Object.assign(e.currentTarget.style, thStyle)}
                   >
                     ID{getSortIndicator('id')}
                   </th>
-                  <th 
-                    style={thStyle} 
+                  <th
+                    style={thStyle}
                     onClick={() => handleSort('name')}
                     onMouseEnter={(e) => Object.assign(e.currentTarget.style, thHoverStyle)}
                     onMouseLeave={(e) => Object.assign(e.currentTarget.style, thStyle)}
                   >
                     Name{getSortIndicator('name')}
                   </th>
-                  <th 
-                    style={thStyle} 
+                  <th
+                    style={thStyle}
                     onClick={() => handleSort('description')}
                     onMouseEnter={(e) => Object.assign(e.currentTarget.style, thHoverStyle)}
                     onMouseLeave={(e) => Object.assign(e.currentTarget.style, thStyle)}
                   >
                     Description{getSortIndicator('description')}
                   </th>
-                  <th 
-                    style={thStyle} 
+                  <th
+                    style={thStyle}
                     onClick={() => handleSort('type')}
                     onMouseEnter={(e) => Object.assign(e.currentTarget.style, thHoverStyle)}
                     onMouseLeave={(e) => Object.assign(e.currentTarget.style, thStyle)}
                   >
                     Type{getSortIndicator('type')}
                   </th>
-                  <th 
-                    style={thStyle} 
+                  <th
+                    style={thStyle}
                     onClick={() => handleSort('category')}
                     onMouseEnter={(e) => Object.assign(e.currentTarget.style, thHoverStyle)}
                     onMouseLeave={(e) => Object.assign(e.currentTarget.style, thStyle)}
                   >
                     Category{getSortIndicator('category')}
                   </th>
-                  <th 
-                    style={thStyle} 
+                  <th
+                    style={thStyle}
                     onClick={() => handleSort('record_count')}
                     onMouseEnter={(e) => Object.assign(e.currentTarget.style, thHoverStyle)}
                     onMouseLeave={(e) => Object.assign(e.currentTarget.style, thStyle)}
                   >
                     Records{getSortIndicator('record_count')}
                   </th>
-                  <th 
-                    style={thStyle} 
+                  <th
+                    style={thStyle}
                     onClick={() => handleSort('date_created')}
                     onMouseEnter={(e) => Object.assign(e.currentTarget.style, thHoverStyle)}
                     onMouseLeave={(e) => Object.assign(e.currentTarget.style, thStyle)}
                   >
                     Created{getSortIndicator('date_created')}
                   </th>
-                  <th 
-                    style={thStyle} 
+                  <th
+                    style={thStyle}
                     onClick={() => handleSort('date_modified')}
                     onMouseEnter={(e) => Object.assign(e.currentTarget.style, thHoverStyle)}
                     onMouseLeave={(e) => Object.assign(e.currentTarget.style, thStyle)}
@@ -632,10 +632,10 @@ const Queries: React.FC = () => {
                             <div>
                               <h4>Additional Information</h4>
                               {Object.entries(query)
-                                .filter(([key, value]) => 
+                                .filter(([key, value]) =>
                                   !['id', 'name', 'description', 'type', 'category', 'record_count', 'date_created', 'date_modified', 'created_by', 'modified_by'].includes(key) &&
-                                  value !== null && 
-                                  value !== undefined && 
+                                  value !== null &&
+                                  value !== undefined &&
                                   value !== ''
                                 )
                                 .map(([key, value]) => (

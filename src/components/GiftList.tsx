@@ -131,6 +131,9 @@ const GiftList: React.FC = () => {
   });
   const [loadedPdfIds, setLoadedPdfIds] = useState<Set<string>>(new Set());
 
+  // Zoom level for card sizing
+  const [zoomLevel, setZoomLevel] = useState<number>(500); // Default 500px width
+
   // Refs for tracking loading states
   const loadingAttachmentsRef = useRef<Set<string>>(new Set());
   const loadingTasksRef = useRef<Set<string>>(new Set()); // Track queued tasks to prevent duplicates
@@ -578,7 +581,6 @@ const GiftList: React.FC = () => {
   if (loading) {
     return (
       <div style={{
-        maxWidth: "1400px",
         margin: "0 auto",
         padding: "20px",
         backgroundColor: "rgba(255, 255, 255, 0.95)",
@@ -704,7 +706,6 @@ const GiftList: React.FC = () => {
   if (error) {
     return (
       <div style={{
-        maxWidth: "1400px",
         margin: "0 auto",
         padding: "20px",
         backgroundColor: "rgba(255, 255, 255, 0.95)",
@@ -737,7 +738,6 @@ const GiftList: React.FC = () => {
 
   return (
     <div style={{
-      maxWidth: "1400px",
       margin: "0 auto",
       padding: "20px",
       backgroundColor: "rgba(255, 255, 255, 0.95)",
@@ -895,6 +895,27 @@ const GiftList: React.FC = () => {
             <span>{t('giftList.showing', { shown: gifts.length, total: totalCount.toLocaleString() })}</span>
           )}
         </div>
+
+        <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+          <label style={{ fontWeight: "bold", fontSize: "14px" }}>Card Size:</label>
+          <select
+            value={zoomLevel}
+            onChange={(e) => setZoomLevel(Number(e.target.value))}
+            style={{
+              padding: "6px 10px",
+              border: "1px solid #ced4da",
+              borderRadius: "4px",
+              fontSize: "14px",
+              minWidth: "120px"
+            }}
+          >
+            <option value={300}>Small (300px)</option>
+            <option value={400}>Medium (400px)</option>
+            <option value={500}>Large (500px)</option>
+            <option value={600}>Extra Large (600px)</option>
+            <option value={700}>Huge (700px)</option>
+          </select>
+        </div>
       </div>
 
       {gifts.length === 0 ? (
@@ -905,22 +926,30 @@ const GiftList: React.FC = () => {
         <>
           {/* Cards Grid */}
           <div className="gifts-grid" style={{
-            display: "grid",
-            gap: "20px",
+            display: "block",
             marginBottom: "20px",
-            minHeight: "400px"
+            minHeight: "400px",
+            fontSize: 0 // Remove whitespace between inline-block elements
           }}>
             {sortedGifts.map((gift) => (
-              <GiftCard
-                key={gift.id}
-                gift={gift}
-                expandedRows={expandedRows}
-                onToggleExpansion={memoizedToggleRowExpansion}
-                onHandlePdfLoaded={memoizedHandlePdfLoaded}
-                onHandleImageError={memoizedHandleImageError}
-                formatCurrency={formatCurrency}
-                formatDate={formatDate}
-              />
+              <div key={gift.id} className="gift-card-wrapper" style={{
+                display: "inline-block",
+                width: `${zoomLevel}px`,
+                margin: "10px",
+                verticalAlign: "top",
+                fontSize: "14px" // Restore font size
+              }}>
+                <GiftCard
+                  gift={gift}
+                  expandedRows={expandedRows}
+                  onToggleExpansion={memoizedToggleRowExpansion}
+                  onHandlePdfLoaded={memoizedHandlePdfLoaded}
+                  onHandleImageError={memoizedHandleImageError}
+                  formatCurrency={formatCurrency}
+                  formatDate={formatDate}
+                  zoomLevel={zoomLevel}
+                />
+              </div>
             ))}
           </div>
 
@@ -984,36 +1013,18 @@ const GiftList: React.FC = () => {
         }
         
         .gifts-grid {
-          /* Mobile: 1 column */
-          grid-template-columns: 1fr;
+          text-align: center;
+          padding: 10px;
         }
         
-        /* Tablet: 2 columns */
-        @media (min-width: 768px) {
-          .gifts-grid {
-            grid-template-columns: repeat(2, 1fr);
-          }
+        .gift-card-wrapper {
+          transition: all 0.2s ease-in-out;
+          transform: translateZ(0);
+          will-change: transform;
         }
         
-        /* Desktop: 3 columns */
-        @media (min-width: 1024px) {
-          .gifts-grid {
-            grid-template-columns: repeat(3, 1fr);
-          }
-        }
-        
-        /* Large Desktop: 4 columns */
-        @media (min-width: 1400px) {
-          .gifts-grid {
-            grid-template-columns: repeat(4, 1fr);
-          }
-        }
-        
-        /* Extra Large: 5+ columns */
-        @media (min-width: 1800px) {
-          .gifts-grid {
-            grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
-          }
+        .gift-card-wrapper:hover {
+          transform: translateY(-2px) translateZ(0);
         }
         
         .gift-card {
@@ -1022,10 +1033,10 @@ const GiftList: React.FC = () => {
           will-change: transform;
           min-height: 200px;
           width: 100%;
+          box-sizing: border-box;
         }
         
         .gift-card:hover {
-          transform: translateY(-2px) translateZ(0);
           box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
         }
         
