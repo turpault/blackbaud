@@ -330,6 +330,12 @@ class AuthService {
     return this.apiRequest(url);
   }
 
+  // Get a single list by ID
+  async getList(listId: string): Promise<any> {
+    const url = `/list/v1/lists/${listId}`;
+    return this.apiRequest(url);
+  }
+
   // Get queries from the Query API
   @cache({ 
     keyPrefix: 'queries', 
@@ -349,55 +355,104 @@ class AuthService {
   })
   async getConstituent(constituentId: string): Promise<ConstituentInfo | null> {
     try {
-      console.log(`Fetching constituent data from API for ID: ${constituentId}`);
-      const constituentData: ConstituentInfo = await this.apiRequest(`/constituent/v1/constituents/${constituentId}`);
+      console.log(`🔍 getConstituent called for ID: ${constituentId}`);
+      const response = await this.apiRequest(`/constituent/v1/constituents/${constituentId}`);
+      console.log(`📡 Raw API response for ${constituentId}:`, response);
+      
+      // Handle different possible response formats
+      let constituentData: ConstituentInfo;
+      if (response && typeof response === 'object') {
+        if (response.value && Array.isArray(response.value)) {
+          // Response might be wrapped in a value array
+          constituentData = response.value[0] as ConstituentInfo;
+        } else if (response.id) {
+          // Direct constituent object
+          constituentData = response as ConstituentInfo;
+        } else {
+          console.error(`❌ Unexpected response format for ${constituentId}:`, response);
+          return null;
+        }
+      } else {
+        console.error(`❌ Invalid response for ${constituentId}:`, response);
+        return null;
+      }
+      
+      console.log(`✅ getConstituent success for ${constituentId}:`, constituentData);
+      
+      // Validate that we have at least an ID and some identifying information
+      if (!constituentData.id) {
+        console.error(`❌ Constituent ${constituentId} missing ID in response`);
+        return null;
+      }
+      
       return constituentData;
     } catch (error: any) {
-      console.error(`Failed to fetch constituent ${constituentId}:`, error);
+      console.error(`❌ getConstituent failed for ${constituentId}:`, error);
       return null;
     }
   }
 
   // Get multiple constituents with batch caching
   async getConstituents(constituentIds: string[], useCache: boolean = true): Promise<Record<string, ConstituentInfo | null>> {
+    console.log(`🔍 getConstituents called with ${constituentIds.length} IDs, useCache: ${useCache}:`, constituentIds);
+    
     const results: Record<string, ConstituentInfo | null> = {};
+
+    // If caching is disabled, fetch all constituents directly
+    if (!useCache) {
+      console.log(`📡 Fetching all ${constituentIds.length} constituents from API (cache disabled)`);
+      const fetchPromises = constituentIds.map(async (id) => {
+        console.log(`🔄 Fetching constituent ${id} from API`);
+        const constituent = await this.getConstituent(id);
+        results[id] = constituent;
+        console.log(`✅ Fetched constituent ${id}:`, constituent);
+      });
+
+      await Promise.all(fetchPromises);
+      console.log(`🎯 Final results:`, results);
+      return results;
+    }
+
+    // If caching is enabled, check individual constituent cache first
     const uncachedIds: string[] = [];
 
-    // Check cache for each constituent if caching is enabled
-    if (useCache) {
-      for (const id of constituentIds) {
-        const cacheKey = `constituent_${id}`;
-        try {
-          const cached = localStorage.getItem(cacheKey);
-          if (cached) {
-            const cachedData = JSON.parse(cached);
-            const now = Date.now();
-            
-            // Cache valid for 1 hour
-            if (cachedData.timestamp && (now - cachedData.timestamp) < 3600000) {
-              results[id] = cachedData.data;
-              continue;
-            } else {
-              localStorage.removeItem(cacheKey);
-            }
+    for (const id of constituentIds) {
+      const cacheKey = `constituent_${id}`;
+      try {
+        const cached = localStorage.getItem(cacheKey);
+        if (cached) {
+          const cachedData = JSON.parse(cached);
+          const now = Date.now();
+          
+          // Cache valid for 1 hour
+          if (cachedData.timestamp && (now - cachedData.timestamp) < 3600000) {
+            results[id] = cachedData.data;
+            console.log(`💾 Found cached data for constituent ${id}:`, cachedData.data);
+            continue;
+          } else {
+            localStorage.removeItem(cacheKey);
+            console.log(`🗑️ Removed expired cache for constituent ${id}`);
           }
-        } catch (error) {
-          console.warn(`Failed to read constituent ${id} from cache:`, error);
-          localStorage.removeItem(cacheKey);
         }
-        uncachedIds.push(id);
+      } catch (error) {
+        console.warn(`Failed to read constituent ${id} from cache:`, error);
+        localStorage.removeItem(cacheKey);
       }
-    } else {
-      uncachedIds.push(...constituentIds);
+      uncachedIds.push(id);
     }
+
+    console.log(`📡 Need to fetch ${uncachedIds.length} uncached constituents:`, uncachedIds);
 
     // Fetch uncached constituents from API
     const fetchPromises = uncachedIds.map(async (id) => {
+      console.log(`🔄 Fetching constituent ${id} from API`);
       const constituent = await this.getConstituent(id);
       results[id] = constituent;
+      console.log(`✅ Fetched constituent ${id}:`, constituent);
     });
 
     await Promise.all(fetchPromises);
+    console.log(`🎯 Final results:`, results);
     return results;
   }
 

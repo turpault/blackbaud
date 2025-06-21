@@ -26,8 +26,6 @@ interface ListsResponse {
 type SortDirection = 'asc' | 'desc' | null;
 
 interface Filters {
-  type: string;
-  status: string;
   listType: string;
 }
 
@@ -42,8 +40,6 @@ const Lists: React.FC = () => {
   const [sortColumn, setSortColumn] = useState<string | null>(searchParams.get('sortColumn'));
   const [sortDirection, setSortDirection] = useState<SortDirection>(searchParams.get('sortDirection') as SortDirection);
   const [filters, setFilters] = useState<Filters>({
-    type: searchParams.get('type') || '',
-    status: searchParams.get('status') || '',
     listType: searchParams.get('listType') || 'Gift'
   });
   const [nextLink, setNextLink] = useState<string | null>(null);
@@ -82,13 +78,13 @@ const Lists: React.FC = () => {
         'fetching lists',
         (errorMsg) => setError(errorMsg)
       );
-      
+
       if (reset) {
         setLists(response.value || []);
       } else {
         setLists(prev => [...prev, ...(response.value || [])]);
       }
-      
+
       setNextLink(response.next_link || null);
       setTotalCount(response.count || 0);
     } catch (err: any) {
@@ -116,7 +112,7 @@ const Lists: React.FC = () => {
 
   const loadMoreLists = async (): Promise<void> => {
     if (!nextLink || loadingMore) return;
-    
+
     setLoadingMore(true);
     setError(null);
 
@@ -127,7 +123,7 @@ const Lists: React.FC = () => {
         'loading more lists',
         (errorMsg) => setError(errorMsg)
       );
-      
+
       setLists(prev => [...prev, ...(response.value || [])]);
       setNextLink(response.next_link || null);
       setTotalCount(response.count || 0);
@@ -142,7 +138,7 @@ const Lists: React.FC = () => {
   const handleSort = (column: string): void => {
     let newSortColumn: string | null;
     let newSortDirection: SortDirection;
-    
+
     if (sortColumn === column) {
       // Same column clicked - cycle through asc -> desc -> null
       if (sortDirection === 'asc') {
@@ -160,7 +156,7 @@ const Lists: React.FC = () => {
       newSortColumn = column;
       newSortDirection = 'asc';
     }
-    
+
     setSortColumn(newSortColumn);
     setSortDirection(newSortDirection);
     updateUrlParams(filters, newSortColumn, newSortDirection);
@@ -195,12 +191,9 @@ const Lists: React.FC = () => {
 
   const filteredLists = React.useMemo(() => {
     return lists.filter(list => {
-      const typeMatch = !filters.type || (list.type && list.type.toLowerCase().includes(filters.type.toLowerCase()));
-      const statusMatch = !filters.status || (list.status && list.status.toLowerCase().includes(filters.status.toLowerCase()));
-      
-      return typeMatch && statusMatch;
+      return true; // No additional filtering needed since we removed type and status filters
     });
-  }, [lists, filters]);
+  }, [lists]);
 
   const sortedLists = React.useMemo(() => {
     if (!sortColumn || !sortDirection) {
@@ -233,35 +226,17 @@ const Lists: React.FC = () => {
     return '';
   };
 
-  const uniqueTypes = React.useMemo(() => {
-    const types = lists
-      .map(list => list.type)
-      .filter(type => type && type.trim() !== '')
-      .map(type => type as string);
-    return Array.from(new Set(types)).sort();
-  }, [lists]);
-
-  const uniqueStatuses = React.useMemo(() => {
-    const statuses = lists
-      .map(list => list.status)
-      .filter(status => status && status.trim() !== '')
-      .map(status => status as string);
-    return Array.from(new Set(statuses)).sort();
-  }, [lists]);
-
   // Update URL parameters when filters change
   const updateUrlParams = (newFilters: Filters, newSortColumn?: string | null, newSortDirection?: SortDirection) => {
     const params = new URLSearchParams();
-    
+
     // Add filters to URL
-    if (newFilters.type) params.set('type', newFilters.type);
-    if (newFilters.status) params.set('status', newFilters.status);
     if (newFilters.listType) params.set('listType', newFilters.listType);
-    
+
     // Add sorting to URL
     if (newSortColumn) params.set('sortColumn', newSortColumn);
     if (newSortDirection) params.set('sortDirection', newSortDirection);
-    
+
     setSearchParams(params, { replace: true });
   };
 
@@ -269,16 +244,6 @@ const Lists: React.FC = () => {
     const newFilters = {
       ...filters,
       [filterType]: value
-    };
-    setFilters(newFilters);
-    updateUrlParams(newFilters, sortColumn, sortDirection);
-  };
-
-  const clearFilters = (): void => {
-    const newFilters = {
-      type: '',
-      status: '',
-      listType: ''
     };
     setFilters(newFilters);
     updateUrlParams(newFilters, sortColumn, sortDirection);
@@ -478,63 +443,6 @@ const Lists: React.FC = () => {
           </select>
         </div>
 
-        <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-          <label style={{ fontWeight: "bold", fontSize: "14px" }}>Type:</label>
-          <select
-            value={filters.type}
-            onChange={(e) => handleFilterChange('type', e.target.value)}
-            style={{
-              padding: "6px 10px",
-              border: "1px solid #ced4da",
-              borderRadius: "4px",
-              fontSize: "14px",
-              minWidth: "120px"
-            }}
-          >
-            <option value="">All Types</option>
-            {uniqueTypes.map(type => (
-              <option key={type} value={type}>{type}</option>
-            ))}
-          </select>
-        </div>
-
-        <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-          <label style={{ fontWeight: "bold", fontSize: "14px" }}>Status:</label>
-          <select
-            value={filters.status}
-            onChange={(e) => handleFilterChange('status', e.target.value)}
-            style={{
-              padding: "6px 10px",
-              border: "1px solid #ced4da",
-              borderRadius: "4px",
-              fontSize: "14px",
-              minWidth: "120px"
-            }}
-          >
-            <option value="">All Statuses</option>
-            {uniqueStatuses.map(status => (
-              <option key={status} value={status}>{status}</option>
-            ))}
-          </select>
-        </div>
-
-        {(filters.type || filters.status || filters.listType) && (
-          <button
-            onClick={clearFilters}
-            style={{
-              padding: "6px 12px",
-              backgroundColor: "#6c757d",
-              color: "white",
-              border: "none",
-              borderRadius: "4px",
-              cursor: "pointer",
-              fontSize: "14px"
-            }}
-          >
-            Clear Filters
-          </button>
-        )}
-
         <div style={{ marginLeft: "auto", fontSize: "14px", color: "#6c757d" }}>
           {sortedLists.length !== totalCount && (
             <span>Showing {sortedLists.length} of {totalCount.toLocaleString()} lists</span>
@@ -554,64 +462,32 @@ const Lists: React.FC = () => {
                 <tr>
                   <th style={{ ...thStyle, cursor: 'default' }}>Actions</th>
                   <th style={{ ...thStyle, cursor: 'default' }}>Gifts</th>
-                  <th 
-                    style={thStyle} 
-                    onClick={() => handleSort('id')}
-                    onMouseEnter={(e) => Object.assign(e.currentTarget.style, thHoverStyle)}
-                    onMouseLeave={(e) => Object.assign(e.currentTarget.style, thStyle)}
-                  >
-                    ID{getSortIndicator('id')}
-                  </th>
-                  <th 
-                    style={thStyle} 
+                  <th
+                    style={thStyle}
                     onClick={() => handleSort('name')}
                     onMouseEnter={(e) => Object.assign(e.currentTarget.style, thHoverStyle)}
                     onMouseLeave={(e) => Object.assign(e.currentTarget.style, thStyle)}
                   >
                     Name{getSortIndicator('name')}
                   </th>
-                  <th 
-                    style={thStyle} 
+                  <th
+                    style={thStyle}
                     onClick={() => handleSort('description')}
                     onMouseEnter={(e) => Object.assign(e.currentTarget.style, thHoverStyle)}
                     onMouseLeave={(e) => Object.assign(e.currentTarget.style, thStyle)}
                   >
                     Description{getSortIndicator('description')}
                   </th>
-                  <th 
-                    style={thStyle} 
-                    onClick={() => handleSort('type')}
-                    onMouseEnter={(e) => Object.assign(e.currentTarget.style, thHoverStyle)}
-                    onMouseLeave={(e) => Object.assign(e.currentTarget.style, thStyle)}
-                  >
-                    Type{getSortIndicator('type')}
-                  </th>
-                  <th 
-                    style={thStyle} 
-                    onClick={() => handleSort('status')}
-                    onMouseEnter={(e) => Object.assign(e.currentTarget.style, thHoverStyle)}
-                    onMouseLeave={(e) => Object.assign(e.currentTarget.style, thStyle)}
-                  >
-                    Status{getSortIndicator('status')}
-                  </th>
-                  <th 
-                    style={thStyle} 
-                    onClick={() => handleSort('constituent_count')}
-                    onMouseEnter={(e) => Object.assign(e.currentTarget.style, thHoverStyle)}
-                    onMouseLeave={(e) => Object.assign(e.currentTarget.style, thStyle)}
-                  >
-                    Count{getSortIndicator('constituent_count')}
-                  </th>
-                  <th 
-                    style={thStyle} 
+                  <th
+                    style={thStyle}
                     onClick={() => handleSort('date_created')}
                     onMouseEnter={(e) => Object.assign(e.currentTarget.style, thHoverStyle)}
                     onMouseLeave={(e) => Object.assign(e.currentTarget.style, thStyle)}
                   >
                     Created{getSortIndicator('date_created')}
                   </th>
-                  <th 
-                    style={thStyle} 
+                  <th
+                    style={thStyle}
                     onClick={() => handleSort('date_modified')}
                     onMouseEnter={(e) => Object.assign(e.currentTarget.style, thHoverStyle)}
                     onMouseLeave={(e) => Object.assign(e.currentTarget.style, thStyle)}
@@ -650,23 +526,19 @@ const Lists: React.FC = () => {
                           🎁 View Gifts
                         </button>
                       </td>
-                      <td style={tdStyle}>{list.id}</td>
                       <td style={tdStyle}>
                         <div style={{ fontWeight: "bold" }}>
                           {list.name || "N/A"}
                         </div>
                       </td>
                       <td style={tdStyle}>{list.description || "N/A"}</td>
-                      <td style={tdStyle}>{list.type || "N/A"}</td>
-                      <td style={tdStyle}>{list.status || "N/A"}</td>
-                      <td style={tdStyle}>{list.constituent_count?.toLocaleString() || "N/A"}</td>
                       <td style={tdStyle}>{formatDate(list.date_created)}</td>
                       <td style={tdStyle}>{formatDate(list.date_modified)}</td>
                     </tr>
                     {expandedRows.has(list.id) && (
                       <tr>
                         <td
-                          colSpan={10}
+                          colSpan={6}
                           style={{
                             ...tdStyle,
                             backgroundColor: "#f8f9fa",
@@ -702,10 +574,10 @@ const Lists: React.FC = () => {
                             <div>
                               <h4>Additional Information</h4>
                               {Object.entries(list)
-                                .filter(([key, value]) => 
+                                .filter(([key, value]) =>
                                   !['id', 'name', 'description', 'type', 'status', 'constituent_count', 'date_created', 'date_modified', 'created_by', 'modified_by'].includes(key) &&
-                                  value !== null && 
-                                  value !== undefined && 
+                                  value !== null &&
+                                  value !== undefined &&
                                   value !== ''
                                 )
                                 .map(([key, value]) => (

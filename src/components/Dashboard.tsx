@@ -54,11 +54,11 @@ const Dashboard: React.FC<DashboardProps> = ({ sessionInfo }) => {
   const { t } = useTranslation();
   const { tab } = useParams<{ tab?: string }>();
   const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState<string>(tab || "gifts");
+  const [activeTab, setActiveTab] = useState<string>(tab || "lists");
 
   const tabs = [
-    { id: "gifts", label: t('dashboard.tabs.gifts'), icon: "🎁" },
     { id: "lists", label: t('dashboard.tabs.lists'), icon: "📝" },
+    { id: "gifts", label: t('dashboard.tabs.gifts'), icon: "🎁" },
     { id: "queries", label: t('dashboard.tabs.queries'), icon: "🔍" },
     { id: "profile", label: t('dashboard.tabs.profile'), icon: "👤" },
     { id: "cache-stats", label: t('dashboard.tabs.cacheStats'), icon: "📊" },
@@ -68,9 +68,9 @@ const Dashboard: React.FC<DashboardProps> = ({ sessionInfo }) => {
   useEffect(() => {
     if (tab && tab !== activeTab) {
       setActiveTab(tab);
-    } else if (!tab && activeTab !== "gifts") {
-      // If no tab in URL, default to gifts
-      navigate("/dashboard/gifts", { replace: true });
+    } else if (!tab && activeTab !== "lists") {
+      // If no tab in URL, default to lists
+      navigate("/dashboard/lists", { replace: true });
     }
   }, [tab, activeTab, navigate]);
 

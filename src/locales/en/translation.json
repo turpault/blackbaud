@@ -2,10 +2,33 @@
   "common": {
     "loading": "Loading...",
     "loadingContent": "Loading content...",
-    "checkingAuth": "Checking authentication..."
+    "checkingAuth": "Checking authentication...",
+    "retry": "Retry",
+    "clear": "Clear",
+    "clearAll": "Clear All",
+    "showDetails": "Show Details",
+    "hideDetails": "Hide Details",
+    "open": "Open",
+    "download": "Download",
+    "reset": "Reset",
+    "zoomIn": "Zoom In",
+    "zoomOut": "Zoom Out",
+    "total": "Total",
+    "completed": "Completed",
+    "pending": "Pending",
+    "failed": "Failed",
+    "running": "Running",
+    "active": "Active",
+    "idle": "Idle",
+    "averageTime": "Avg Time",
+    "pages": "Pages",
+    "rendered": "Rendered",
+    "rendering": "Rendering",
+    "more": "more",
+    "failed": "failed"
   },
   "home": {
-    "title": "🚀 Blackbaud OAuth App",
+    "title": "🏥 Fondation HMR : Dons",
     "subtitle": "Connect securely with Blackbaud's API using OAuth 2.0 authentication. This application demonstrates a complete OAuth flow with modern React practices.",
     "features": {
       "secure": {
@@ -36,7 +59,7 @@
     "buttonTitle": "Login with Blackbaud OAuth2"
   },
   "dashboard": {
-    "title": "🎯 Raiser's Edge NXT Dashboard",
+    "title": "🏥 Fondation HMR : Dons",
     "subtitle": "You have successfully authenticated with Blackbaud!",
     "logoutPage": "Logout Page",
     "quickLogout": "Quick Logout",
@@ -51,6 +74,99 @@
     "profile": {
       "title": "👤 Profile Information",
       "notAvailable": "Profile information is not available."
+    }
+  },
+  "queueManager": {
+    "title": "🚀 Queue Manager",
+    "active": "Active",
+    "showDetails": "Show Details",
+    "hideDetails": "Hide Details",
+    "clearAll": "Clear All",
+    "totalTasks": "Total Tasks",
+    "completed": "Completed",
+    "pending": "Pending",
+    "failed": "Failed",
+    "queueDetails": "Queue Details",
+    "constituentQueue": "Constituent Queue",
+    "attachmentQueue": "Attachment Queue",
+    "pdfQueue": "PDF Queue",
+    "running": "Running",
+    "avgTime": "Avg Time"
+  },
+  "giftList": {
+    "title": "Gifts",
+    "loading": "Loading gifts...",
+    "noGifts": "No gifts found",
+    "loadMore": "Load More",
+    "loadingMore": "Loading more...",
+    "scrollForMore": "Scroll for more gifts...",
+    "filters": {
+      "title": "Filters",
+      "clear": "Clear Filters",
+      "list": "List",
+      "type": "Type",
+      "status": "Status",
+      "subtype": "Subtype",
+      "allTypes": "All Types",
+      "allStatuses": "All Statuses",
+      "allSubtypes": "All Subtypes",
+      "sortBy": "Sort by",
+      "noSorting": "No sorting"
+    },
+    "columns": {
+      "id": "ID",
+      "constituent": "Constituent",
+      "amount": "Amount",
+      "date": "Date",
+      "type": "Type",
+      "subtype": "Subtype",
+      "status": "Status",
+      "designation": "Designation",
+      "receiptDate": "Receipt Date",
+      "batchNumber": "Batch Number",
+      "reference": "Reference",
+      "anonymous": "Anonymous",
+      "attachments": "Attachments"
+    },
+    "attachments": {
+      "title": "Attachments",
+      "loading": "Loading attachments...",
+      "noAttachments": "No attachments",
+      "image": "Image",
+      "pdf": "PDF",
+      "file": "File",
+      "download": "Download",
+      "open": "Open",
+      "rendering": "Rendering...",
+      "failed": "Failed to render"
+    },
+    "constituent": {
+      "loading": "Loading constituent...",
+      "notFound": "Constituent not found"
+    },
+    "showing": "Showing {{shown}} of {{total}} gifts"
+  },
+  "pdfViewer": {
+    "loading": "Loading PDF...",
+    "rendering": "Rendering pages...",
+    "page": "Page",
+    "open": "Open",
+    "download": "Download",
+    "reset": "Reset",
+    "zoomIn": "Zoom In",
+    "zoomOut": "Zoom Out",
+    "failed": "Failed to load PDF",
+    "authenticationRequired": "Authentication required: Please log in to view this PDF file.",
+    "retry": "Retry"
+  },
+  "lists": {
+    "title": "Lists",
+    "loading": "Loading lists...",
+    "noLists": "No lists found",
+    "columns": {
+      "name": "Name",
+      "description": "Description",
+      "constituentCount": "Constituent Count"
     }
   }
 } 

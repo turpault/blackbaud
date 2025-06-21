@@ -1,7 +1,13 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
-import authService, { ConstituentInfo } from "../services/authService";
-import PdfViewer from "./PdfViewer";
+import { useTranslation } from "react-i18next";
+import authService from "../services/authService";
+import type { ConstituentInfo } from "../services/authService";
+import { constituentQueue, attachmentQueue } from "../utils/concurrentQueue";
+import QueueManager from "./QueueManager";
+import LazyLoadingStats from "./LazyLoadingStats";
+import PdfDownloadStatus from "./PdfDownloadStatus";
+import GiftCard from "./GiftCard";
 
 // Define types inline since we removed the auth types file
 interface Gift {
@@ -72,7 +78,32 @@ interface Filters {
   list_id: string;
 }
 
+// Loading states for better UX
+interface LoadingStates {
+  constituents: Set<string>;
+  attachments: Set<string>;
+}
+
+// Custom hook for debounced state
+const useDebouncedState = <T,>(initialValue: T, delay: number): [T, T, (value: T) => void] => {
+  const [immediateValue, setImmediateValue] = useState<T>(initialValue);
+  const [debouncedValue, setDebouncedValue] = useState<T>(initialValue);
+
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedValue(immediateValue);
+    }, delay);
+
+    return () => {
+      clearTimeout(handler);
+    };
+  }, [immediateValue, delay]);
+
+  return [immediateValue, debouncedValue, setImmediateValue];
+};
+
 const GiftList: React.FC = () => {
+  const { t } = useTranslation();
   const [searchParams, setSearchParams] = useSearchParams();
   const [gifts, setGifts] = useState<Gift[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
@@ -82,52 +113,156 @@ const GiftList: React.FC = () => {
   const [imageErrors, setImageErrors] = useState<Set<string>>(new Set());
   const [sortColumn, setSortColumn] = useState<string | null>(searchParams.get('sortColumn'));
   const [sortDirection, setSortDirection] = useState<SortDirection>(searchParams.get('sortDirection') as SortDirection);
-  const [filters, setFilters] = useState<Filters>({
-    type: searchParams.get('type') || '',
-    status: searchParams.get('status') || '',
-    subtype: searchParams.get('subtype') || '',
-    list_id: searchParams.get('list_id') || ''
-  });
   const [nextLink, setNextLink] = useState<string | null>(null);
   const [totalCount, setTotalCount] = useState<number>(0);
   const [cachedConstituents, setCachedConstituents] = useState<Record<string, ConstituentInfo | null>>({});
   const [giftAttachments, setGiftAttachments] = useState<Record<string, GiftAttachment[]>>({});
-  const [loadingAttachments, setLoadingAttachments] = useState<Set<string>>(new Set());
+  const [loadingStates, setLoadingStates] = useState<LoadingStates>({
+    constituents: new Set(),
+    attachments: new Set()
+  });
+  const [cachedLists, setCachedLists] = useState<Record<string, { name: string; description?: string }>>({});
 
-  const fetchGiftAttachments = useCallback(async (giftId: string): Promise<void> => {
-    // Don't fetch if already loading or already have attachments
-    if (loadingAttachments.has(giftId) || giftAttachments[giftId]) {
+  // PDF loading statistics
+  const [pdfStats, setPdfStats] = useState({
+    totalPdfs: 0,
+    loadedPdfs: 0,
+    pendingPdfs: 0
+  });
+  const [loadedPdfIds, setLoadedPdfIds] = useState<Set<string>>(new Set());
+
+  // Refs for tracking loading states
+  const loadingAttachmentsRef = useRef<Set<string>>(new Set());
+  const loadingTasksRef = useRef<Set<string>>(new Set()); // Track queued tasks to prevent duplicates
+
+  // Debounced filters for better performance
+  const [immediateFilters, debouncedFilters, setImmediateFilters] = useDebouncedState<Filters>({
+    type: searchParams.get('type') || '',
+    status: searchParams.get('status') || '',
+    subtype: searchParams.get('subtype') || '',
+    list_id: searchParams.get('list_id') || ''
+  }, 300);
+
+  // Use debounced filters for API calls
+  const filters = debouncedFilters;
+
+  // Wrap isPdfFile in useCallback to fix dependency issues
+  const isPdfFile = useCallback((attachment: GiftAttachment): boolean => {
+    const fileName = attachment.file_name || attachment.name || '';
+    const contentType = attachment.content_type || '';
+    return fileName.toLowerCase().endsWith('.pdf') || contentType.toLowerCase().includes('pdf');
+  }, []);
+
+  // Wrap handleImageError in useCallback to fix dependency issues
+  const handleImageError = useCallback((attachmentId: string): void => {
+    setImageErrors(prev => new Set([...Array.from(prev), attachmentId]));
+  }, []);
+
+  // Queue constituent loading using the queue
+  const queueConstituentLoad = useCallback((constituentId: string): void => {
+    console.log(`📋 Queueing constituent load for ${constituentId}. Already cached: ${cachedConstituents[constituentId] !== undefined}`);
+
+    if (!constituentId || cachedConstituents[constituentId] !== undefined) return;
+
+    // Add task to the queue
+    constituentQueue.add({
+      id: `constituent_${constituentId}`,
+      type: 'constituent',
+      priority: 1,
+      execute: async () => {
+        console.log(`📡 Fetching constituent ${constituentId} from API`);
+        const constituent = await authService.getConstituent(constituentId);
+        console.log(`✅ Fetched constituent ${constituentId}:`, constituent);
+        return constituent;
+      },
+      onSuccess: (constituent) => {
+        console.log(`💾 Updating cached constituent ${constituentId}:`, constituent);
+        setCachedConstituents(prev => ({ ...prev, [constituentId]: constituent }));
+      },
+      onError: (error) => {
+        console.error(`❌ Failed to fetch constituent ${constituentId}:`, error);
+        setCachedConstituents(prev => ({ ...prev, [constituentId]: null }));
+      }
+    });
+  }, [cachedConstituents]);
+
+  // Load gift attachments using the queue
+  const loadGiftAttachments = useCallback(async (giftId: string): Promise<void> => {
+    // Don't fetch if already loading, already have attachments, or task already queued
+    if (loadingAttachmentsRef.current.has(giftId) ||
+      giftAttachments[giftId] !== undefined ||
+      loadingTasksRef.current.has(giftId)) {
+      console.log(`🚫 Skipping attachment load for ${giftId} - already loading, loaded, or queued`);
       return;
     }
 
-    setLoadingAttachments(prev => new Set(prev).add(giftId));
+    // Mark as loading and track task
+    const newLoadingAttachments = new Set([...Array.from(loadingStates.attachments), giftId]);
+    setLoadingStates(prev => ({
+      ...prev,
+      attachments: newLoadingAttachments
+    }));
+    loadingAttachmentsRef.current.add(giftId);
+    loadingTasksRef.current.add(giftId);
 
-    try {
-      console.log(`Fetching attachments for gift ${giftId}`);
-      const response = await authService.executeQuery(
-        () => authService.getGiftAttachments(giftId),
-        `fetching attachments for gift ${giftId}`
-      );
-      
-      setGiftAttachments(prev => ({
+    console.log(`📋 Queueing attachment load for gift ${giftId}`);
+
+    // Add task to the queue
+    attachmentQueue.add({
+      id: `attachment_${giftId}`,
+      type: 'attachment',
+      priority: 2,
+      execute: async () => {
+        console.log(`📡 Loading attachments for gift ${giftId}`);
+        const response = await authService.executeQuery(
+          () => authService.getGiftAttachments(giftId),
+          `fetching attachments for gift ${giftId}`
+        );
+        console.log(`✅ Loaded attachments for gift ${giftId}:`, response);
+        return response;
+      },
+      onSuccess: (response) => {
+        console.log(`💾 Updating attachments for gift ${giftId}:`, response);
+        setGiftAttachments(prev => ({
+          ...prev,
+          [giftId]: response.value || []
+        }));
+      },
+      onError: (error) => {
+        console.error(`❌ Failed to fetch attachments for gift ${giftId}:`, error);
+        setGiftAttachments(prev => ({
+          ...prev,
+          [giftId]: []
+        }));
+      }
+    });
+
+    // Set up cleanup
+    const cleanup = () => {
+      const remainingLoading = new Set(Array.from(loadingStates.attachments).filter(id => id !== giftId));
+      setLoadingStates(prev => ({
         ...prev,
-        [giftId]: response.value || []
+        attachments: remainingLoading
       }));
-    } catch (err: any) {
-      console.error(`Failed to fetch attachments for gift ${giftId}:`, err);
-      // Set empty array to prevent repeated attempts
-      setGiftAttachments(prev => ({
-        ...prev,
-        [giftId]: []
-      }));
-    } finally {
-      setLoadingAttachments(prev => {
-        const newSet = new Set(prev);
-        newSet.delete(giftId);
-        return newSet;
-      });
-    }
-  }, [loadingAttachments, giftAttachments]);
+      loadingAttachmentsRef.current.delete(giftId);
+      loadingTasksRef.current.delete(giftId);
+    };
+
+    // Wait for task to complete
+    setTimeout(() => {
+      cleanup();
+    }, 100);
+  }, [giftAttachments, loadingStates.attachments]);
+
+  // Load attachments for visible gifts when they come into view
+  const loadAttachmentsForVisibleGifts = useCallback((visibleGiftIds: string[]): void => {
+    visibleGiftIds.forEach(giftId => {
+      if (!loadingAttachmentsRef.current.has(giftId) && giftAttachments[giftId] === undefined) {
+        // Small delay to avoid overwhelming the API
+        setTimeout(() => loadGiftAttachments(giftId), Math.random() * 500);
+      }
+    });
+  }, [loadGiftAttachments, giftAttachments]);
 
   const fetchGifts = useCallback(async (reset: boolean = true): Promise<void> => {
     if (reset) {
@@ -146,208 +281,146 @@ const GiftList: React.FC = () => {
         'fetching gifts',
         (errorMsg) => setError(errorMsg)
       );
-      
+
       if (reset) {
         setGifts(response.value || []);
       } else {
         setGifts(prev => [...prev, ...(response.value || [])]);
       }
-      
+
       setNextLink(response.next_link || null);
       setTotalCount(response.count || 0);
 
-      // Fetch constituent details for gifts that have constituent_id
-      if (response.value && response.value.length > 0) {
-        const constituentIds = response.value
-          .map(gift => gift.constituent_id)
-          .filter((id): id is string => !!id);
-        
-        if (constituentIds.length > 0) {
-          try {
-            const constituents = await authService.executeQuery(
-              () => authService.getConstituents(constituentIds),
-              'fetching constituent details'
-            );
-            setCachedConstituents(prev => ({ ...prev, ...constituents }));
-          } catch (error) {
-            console.warn('Failed to fetch constituent details:', error);
-          }
+      // Queue constituent loading for new gifts
+      const newGifts = response.value || [];
+      newGifts.forEach(gift => {
+        if (gift.constituent_id && cachedConstituents[gift.constituent_id] === undefined) {
+          queueConstituentLoad(gift.constituent_id);
         }
-      }
-    } catch (err: any) {
-      // Error is already handled by executeQuery, but we still need to catch it
-      console.error("Failed to fetch gifts:", err);
-    } finally {
-      if (reset) {
-        setLoading(false);
-      } else {
-        setLoadingMore(false);
-      }
-    }
-  }, [filters.list_id]);
+      });
 
+    } catch (error) {
+      console.error('❌ Error fetching gifts:', error);
+      setError('Failed to load gifts');
+    } finally {
+      setLoading(false);
+      setLoadingMore(false);
+    }
+  }, [filters.list_id, cachedConstituents, queueConstituentLoad]);
+
+  const loadMoreGifts = useCallback(async (): Promise<void> => {
+    if (!nextLink || loadingMore) return;
+
+    try {
+      setLoadingMore(true);
+      const response: GiftListResponse = await authService.executeQuery(
+        () => authService.apiRequestUrl(nextLink),
+        'fetching more gifts'
+      );
+
+      setGifts(prev => [...prev, ...(response.value || [])]);
+      setNextLink(response.next_link || null);
+
+      // Queue constituent loading for new gifts
+      const newGifts = response.value || [];
+      newGifts.forEach(gift => {
+        if (gift.constituent_id && cachedConstituents[gift.constituent_id] === undefined) {
+          queueConstituentLoad(gift.constituent_id);
+        }
+      });
+
+    } catch (error) {
+      console.error('❌ Error loading more gifts:', error);
+      setError('Failed to load more gifts');
+    } finally {
+      setLoadingMore(false);
+    }
+  }, [nextLink, loadingMore, cachedConstituents, queueConstituentLoad]);
+
+  // Load gifts on mount and when filters change
   useEffect(() => {
     fetchGifts();
   }, [fetchGifts]);
 
-  // Refetch gifts when list_id filter changes
-  useEffect(() => {
-    if (filters.list_id !== '') {
-      fetchGifts();
-    }
-  }, [filters.list_id, fetchGifts]);
-
-  // Load attachments asynchronously for all gifts
-  useEffect(() => {
-    if (gifts.length > 0) {
-      gifts.forEach(gift => {
-        // Only fetch if we don't already have attachments and aren't currently loading
-        if (!giftAttachments[gift.id] && !loadingAttachments.has(gift.id)) {
-          fetchGiftAttachments(gift.id);
-        }
-      });
-    }
-  }, [gifts, fetchGiftAttachments, giftAttachments, loadingAttachments]);
-
-  const loadMoreGifts = async (): Promise<void> => {
-    if (!nextLink || loadingMore) return;
-    
-    setLoadingMore(true);
-    setError(null);
-
-    try {
-      // Use centralized query handler
-      const response: GiftListResponse = await authService.executeQuery(
-        () => authService.apiRequestUrl(nextLink),
-        'loading more gifts',
-        (errorMsg) => setError(errorMsg)
-      );
-      
-      setGifts(prev => [...prev, ...(response.value || [])]);
-      setNextLink(response.next_link || null);
-      setTotalCount(response.count || 0);
-
-      // Fetch constituent details for newly loaded gifts
-      if (response.value && response.value.length > 0) {
-        const constituentIds = response.value
-          .map(gift => gift.constituent_id)
-          .filter((id): id is string => !!id);
-        
-        if (constituentIds.length > 0) {
-          try {
-            const constituents = await authService.executeQuery(
-              () => authService.getConstituents(constituentIds),
-              'fetching constituent details'
-            );
-            setCachedConstituents(prev => ({ ...prev, ...constituents }));
-          } catch (error) {
-            console.warn('Failed to fetch constituent details:', error);
-          }
-        }
-      }
-    } catch (err: any) {
-      // Error is already handled by executeQuery, but we still need to catch it
-      console.error("Failed to load more gifts:", err);
-    } finally {
-      setLoadingMore(false);
-    }
-  };
-
-  const handleSort = (column: string): void => {
-    let newSortColumn: string | null;
-    let newSortDirection: SortDirection;
-    
-    if (sortColumn === column) {
-      // Same column clicked - cycle through asc -> desc -> null
-      if (sortDirection === 'asc') {
-        newSortColumn = column;
-        newSortDirection = 'desc';
-      } else if (sortDirection === 'desc') {
-        newSortColumn = null;
-        newSortDirection = null;
+  // Memoized handlers to prevent unnecessary re-renders
+  const memoizedToggleRowExpansion = useCallback((giftId: string): void => {
+    setExpandedRows(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(giftId)) {
+        newSet.delete(giftId);
       } else {
-        newSortColumn = column;
-        newSortDirection = 'asc';
+        newSet.add(giftId);
       }
-    } else {
-      // New column clicked
-      newSortColumn = column;
-      newSortDirection = 'asc';
-    }
-    
-    setSortColumn(newSortColumn);
-    setSortDirection(newSortDirection);
-    updateUrlParams(filters, newSortColumn, newSortDirection);
-  };
-
-  const getSortValue = useCallback((gift: Gift, column: string): any => {
-    switch (column) {
-      case 'id':
-        return gift.id;
-      case 'constituent':
-        return gift.constituent_id ? (cachedConstituents[gift.constituent_id]?.name || '') : '';
-      case 'amount':
-        return gift.amount?.value || 0;
-      case 'date':
-        return gift.date ? new Date(gift.date).getTime() : 0;
-      case 'type':
-        return gift.type || '';
-      case 'subtype':
-        return gift.subtype || '';
-      case 'status':
-        return gift.gift_status || '';
-      case 'designation':
-        return gift.designation || '';
-      case 'receipt_date':
-        return gift.receipt_date ? new Date(gift.receipt_date).getTime() : 0;
-      case 'batch_number':
-        return gift.batch_number || '';
-      case 'reference':
-        return gift.reference || '';
-      case 'anonymous':
-        return gift.is_anonymous ? 'Yes' : 'No';
-      case 'attachments':
-        return gift.attachments?.length || 0;
-      default:
-        return '';
-    }
-  }, [cachedConstituents]);
-
-  const filteredGifts = React.useMemo(() => {
-    return gifts.filter(gift => {
-      const typeMatch = !filters.type || (gift.type && gift.type.toLowerCase().includes(filters.type.toLowerCase()));
-      const statusMatch = !filters.status || (gift.gift_status && gift.gift_status.toLowerCase().includes(filters.status.toLowerCase()));
-      const subtypeMatch = !filters.subtype || (gift.subtype && gift.subtype.toLowerCase().includes(filters.subtype.toLowerCase()));
-      
-      return typeMatch && statusMatch && subtypeMatch;
+      return newSet;
     });
-  }, [gifts, filters]);
+  }, []);
 
-  const sortedGifts = React.useMemo(() => {
-    if (!sortColumn || !sortDirection) {
-      return filteredGifts;
-    }
+  const memoizedHandlePdfLoaded = useCallback((pdfId: string): void => {
+    setLoadedPdfIds(prev => new Set([...Array.from(prev), pdfId]));
+    setPdfStats(prev => ({
+      ...prev,
+      loadedPdfs: prev.loadedPdfs + 1,
+      pendingPdfs: Math.max(0, prev.pendingPdfs - 1)
+    }));
+  }, []);
 
-    return [...filteredGifts].sort((a, b) => {
-      const aValue = getSortValue(a, sortColumn);
-      const bValue = getSortValue(b, sortColumn);
+  const memoizedHandleImageError = useCallback((attachmentId: string): void => {
+    setImageErrors(prev => new Set([...Array.from(prev), attachmentId]));
+  }, []);
 
-      if (aValue === bValue) return 0;
+  // Sort gifts based on current sort settings
+  const sortedGifts = useMemo(() => {
+    if (!sortColumn) return gifts;
 
-      let comparison = 0;
-      if (typeof aValue === 'string' && typeof bValue === 'string') {
-        comparison = aValue.localeCompare(bValue);
-      } else if (typeof aValue === 'number' && typeof bValue === 'number') {
-        comparison = aValue - bValue;
-      } else {
-        comparison = String(aValue).localeCompare(String(bValue));
+    return [...gifts].sort((a, b) => {
+      let aValue: any;
+      let bValue: any;
+
+      switch (sortColumn) {
+        case 'amount':
+          aValue = a.amount?.value || 0;
+          bValue = b.amount?.value || 0;
+          break;
+        case 'date':
+          aValue = new Date(a.date || '').getTime();
+          bValue = new Date(b.date || '').getTime();
+          break;
+        case 'constituent':
+          aValue = cachedConstituents[a.constituent_id || '']?.name || '';
+          bValue = cachedConstituents[b.constituent_id || '']?.name || '';
+          break;
+        case 'type':
+          aValue = a.type || '';
+          bValue = b.type || '';
+          break;
+        case 'status':
+          aValue = a.gift_status || '';
+          bValue = b.gift_status || '';
+          break;
+        case 'fund':
+          aValue = a.designation || '';
+          bValue = b.designation || '';
+          break;
+        case 'campaign':
+          aValue = a.campaign || '';
+          bValue = b.campaign || '';
+          break;
+        case 'appeal':
+          aValue = a.appeal || '';
+          bValue = b.appeal || '';
+          break;
+        default:
+          return 0;
       }
 
-      return sortDirection === 'asc' ? comparison : -comparison;
+      if (aValue < bValue) return sortDirection === 'asc' ? -1 : 1;
+      if (aValue > bValue) return sortDirection === 'asc' ? 1 : -1;
+      return 0;
     });
-  }, [filteredGifts, sortColumn, sortDirection, getSortValue]);
+  }, [gifts, sortColumn, sortDirection, cachedConstituents]);
 
-  const uniqueTypes = React.useMemo(() => {
+  // Get unique values for filter dropdowns
+  const uniqueTypes = useMemo(() => {
     const types = gifts
       .map(gift => gift.type)
       .filter(type => type && type.trim() !== '')
@@ -355,7 +428,7 @@ const GiftList: React.FC = () => {
     return Array.from(new Set(types)).sort();
   }, [gifts]);
 
-  const uniqueStatuses = React.useMemo(() => {
+  const uniqueStatuses = useMemo(() => {
     const statuses = gifts
       .map(gift => gift.gift_status)
       .filter(status => status && status.trim() !== '')
@@ -363,7 +436,7 @@ const GiftList: React.FC = () => {
     return Array.from(new Set(statuses)).sort();
   }, [gifts]);
 
-  const uniqueSubtypes = React.useMemo(() => {
+  const uniqueSubtypes = useMemo(() => {
     const subtypes = gifts
       .map(gift => gift.subtype)
       .filter(subtype => subtype && subtype.trim() !== '')
@@ -371,403 +444,291 @@ const GiftList: React.FC = () => {
     return Array.from(new Set(subtypes)).sort();
   }, [gifts]);
 
-  // Update URL parameters when filters change
-  const updateUrlParams = (newFilters: Filters, newSortColumn?: string | null, newSortDirection?: SortDirection) => {
-    const params = new URLSearchParams();
-    
-    // Add filters to URL
-    if (newFilters.type) params.set('type', newFilters.type);
-    if (newFilters.status) params.set('status', newFilters.status);
-    if (newFilters.subtype) params.set('subtype', newFilters.subtype);
-    if (newFilters.list_id) params.set('list_id', newFilters.list_id);
-    
-    // Add sorting to URL
-    if (newSortColumn) params.set('sortColumn', newSortColumn);
-    if (newSortDirection) params.set('sortDirection', newSortDirection);
-    
-    setSearchParams(params, { replace: true });
-  };
-
-  const handleFilterChange = (filterType: keyof Filters, value: string): void => {
-    const newFilters = {
-      ...filters,
-      [filterType]: value
-    };
-    setFilters(newFilters);
-    updateUrlParams(newFilters, sortColumn, sortDirection);
-  };
-
-  const clearFilters = (): void => {
-    const newFilters = {
-      type: '',
-      status: '',
-      subtype: '',
-      list_id: ''
-    };
-    setFilters(newFilters);
-    updateUrlParams(newFilters, sortColumn, sortDirection);
-  };
-
-  const toggleRowExpansion = (giftId: string): void => {
-    const newExpanded = new Set(expandedRows);
-    if (newExpanded.has(giftId)) {
-      newExpanded.delete(giftId);
+  const handleSort = (column: string): void => {
+    if (sortColumn === column) {
+      setSortDirection(prev => prev === 'asc' ? 'desc' : 'asc');
     } else {
-      newExpanded.add(giftId);
+      setSortColumn(column);
+      setSortDirection('asc');
     }
-    setExpandedRows(newExpanded);
   };
 
   const formatCurrency = (amount?: {
     value: number;
     currency?: string;
   }): string => {
-    if (!amount) return "N/A";
-    const currency = amount.currency || "USD";
-    return new Intl.NumberFormat("en-US", {
-      style: "currency",
-      currency: currency,
+    if (!amount || amount.value === undefined) return 'N/A';
+    const currency = amount.currency || 'USD';
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: currency
     }).format(amount.value);
   };
 
   const formatDate = (dateString?: string): string => {
-    if (!dateString) return "N/A";
+    if (!dateString) return 'N/A';
     return new Date(dateString).toLocaleDateString();
   };
 
-  const formatFileSize = (bytes: number): string => {
-    if (bytes === 0) return '0 Bytes';
-    const k = 1024;
-    const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+  const updateUrlParams = (newFilters: Filters, newSortColumn?: string | null, newSortDirection?: SortDirection) => {
+    const params = new URLSearchParams();
+    if (newFilters.type) params.set('type', newFilters.type);
+    if (newFilters.status) params.set('status', newFilters.status);
+    if (newFilters.subtype) params.set('subtype', newFilters.subtype);
+    if (newFilters.list_id) params.set('list_id', newFilters.list_id);
+    if (newSortColumn) params.set('sortColumn', newSortColumn);
+    if (newSortDirection) params.set('sortDirection', newSortDirection);
+    setSearchParams(params);
   };
 
-  const isImageFile = (attachment: GiftAttachment): boolean => {
-    if (!attachment.url) return false;
-
-    // Check by file extension
-    const imageExtensions = [
-      ".jpg",
-      ".jpeg",
-      ".png",
-      ".gif",
-      ".bmp",
-      ".webp",
-      ".svg",
-    ];
-    const url = attachment.url.toLowerCase();
-    const hasImageExtension = imageExtensions.some((ext) => url.includes(ext));
-
-    // Check by MIME type if available
-    const isImageType = attachment.type?.toLowerCase().startsWith("image/");
-
-    return hasImageExtension || isImageType || false;
+  const handleFilterChange = (filterType: keyof Filters, value: string): void => {
+    const newFilters = { ...immediateFilters, [filterType]: value };
+    setImmediateFilters(newFilters);
+    updateUrlParams(newFilters, sortColumn, sortDirection);
   };
 
-  const isPdfFile = (attachment: GiftAttachment): boolean => {
-    if (!attachment.url) return false;
-
-    // Check by file extension
-    const url = attachment.url.toLowerCase();
-    const hasPdfExtension = url.includes(".pdf");
-
-    // Check by MIME type if available
-    const isPdfType = attachment.content_type?.toLowerCase() === "application/pdf" ||
-                      attachment.type?.toLowerCase() === "application/pdf";
-
-    return hasPdfExtension || isPdfType || false;
+  const clearFilters = (): void => {
+    const newFilters = { type: '', status: '', subtype: '', list_id: '' };
+    setImmediateFilters(newFilters);
+    updateUrlParams(newFilters, sortColumn, sortDirection);
   };
 
-  const handleImageError = (attachmentId: string): void => {
-    setImageErrors((prev) => new Set(Array.from(prev).concat(attachmentId)));
-  };
+  // Intersection observer for infinite scroll and PDF loading
+  const observerRef = useRef<IntersectionObserver | null>(null);
+  const loadMoreTriggerRef = useRef<HTMLDivElement>(null);
 
-  const renderAttachments = (gift: Gift): JSX.Element => {
-    const giftId = gift.id;
-    const isLoadingAttachments = loadingAttachments.has(giftId);
-    const fetchedAttachments = giftAttachments[giftId];
-    
-    // Use fetched attachments if available, otherwise fall back to gift.attachments
-    const attachments = fetchedAttachments || gift.attachments;
-
-    if (isLoadingAttachments) {
-      return (
-        <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-          <div
-            style={{
-              width: "16px",
-              height: "16px",
-              border: "2px solid #f3f3f3",
-              borderTop: "2px solid #2196F3",
-              borderRadius: "50%",
-              animation: "spin 1s linear infinite"
-            }}
-          />
-          <span style={{ color: "#666", fontStyle: "italic" }}>
-            Loading attachments...
-          </span>
-        </div>
+  useEffect(() => {
+    // Set up intersection observer for infinite scroll
+    if (loadMoreTriggerRef.current && nextLink && !loadingMore) {
+      observerRef.current = new IntersectionObserver(
+        (entries) => {
+          entries.forEach((entry) => {
+            if (entry.isIntersecting && nextLink && !loadingMore) {
+              console.log('🔄 Load more trigger visible, loading more gifts...');
+              loadMoreGifts();
+            }
+          });
+        },
+        { threshold: 0.1, rootMargin: '100px' }
       );
+
+      observerRef.current.observe(loadMoreTriggerRef.current);
     }
 
-    if (!attachments || attachments.length === 0) {
-      return (
-        <span style={{ color: "#666", fontStyle: "italic" }}>
-          No attachments
-        </span>
+    return () => {
+      if (observerRef.current) {
+        observerRef.current.disconnect();
+      }
+    };
+  }, [nextLink, loadingMore, loadMoreGifts]);
+
+  // Load list name when filtering by list
+  const loadListName = useCallback(async (listId: string): Promise<void> => {
+    if (!listId || cachedLists[listId]) return;
+
+    try {
+      console.log(`📋 Loading list name for ${listId}`);
+      const response = await authService.executeQuery(
+        () => authService.getList(listId),
+        `fetching list ${listId}`
       );
+
+      if (response) {
+        setCachedLists(prev => ({
+          ...prev,
+          [listId]: {
+            name: response.name || response.title || 'Unknown List',
+            description: response.description
+          }
+        }));
+      }
+    } catch (error) {
+      console.error(`❌ Failed to load list name for ${listId}:`, error);
+      setCachedLists(prev => ({
+        ...prev,
+        [listId]: {
+          name: 'Unknown List',
+          description: undefined
+        }
+      }));
+    }
+  }, [cachedLists]);
+
+  // Load list name when list filter is set
+  useEffect(() => {
+    if (filters.list_id && !cachedLists[filters.list_id]) {
+      loadListName(filters.list_id);
+    }
+  }, [filters.list_id, cachedLists, loadListName]);
+
+  // Preserve scroll position on refresh
+  useEffect(() => {
+    const savedScrollPosition = sessionStorage.getItem('giftListScrollPosition');
+    if (savedScrollPosition && !loading) {
+      setTimeout(() => {
+        window.scrollTo(0, parseInt(savedScrollPosition));
+      }, 100);
     }
 
-    return (
-      <div style={{ maxWidth: "250px" }}>
-        {attachments.map((attachment, index) => {
-          const attachmentKey = `${attachment.id || index}`;
-          const hasImageError = imageErrors.has(attachmentKey);
-          const shouldShowAsImage =
-            attachment.url && isImageFile(attachment) && !hasImageError;
-          const shouldShowAsPdf = attachment.url && isPdfFile(attachment);
-          const hasThumbnail = attachment.thumbnail_url && !hasImageError;
-
-          return (
-            <div
-              key={attachmentKey}
-              style={{
-                marginBottom: "8px",
-                padding: "8px",
-                backgroundColor: "#f0f0f0",
-                borderRadius: "6px",
-                fontSize: "12px",
-              }}
-            >
-              <div style={{ fontWeight: "bold", marginBottom: "4px" }}>
-                {attachment.name || attachment.file_name || "Unnamed attachment"}
-              </div>
-
-              {attachment.content_type && (
-                <div style={{ color: "#666", marginBottom: "4px" }}>
-                  Type: {attachment.content_type}
-                </div>
-              )}
-
-              {attachment.file_size && (
-                <div style={{ color: "#666", marginBottom: "4px" }}>
-                  Size: {formatFileSize(attachment.file_size)}
-                </div>
-              )}
-
-              {attachment.date && (
-                <div style={{ color: "#666", marginBottom: "4px" }}>
-                  Date: {formatDate(attachment.date)}
-                </div>
-              )}
-
-              {attachment.tags && attachment.tags.length > 0 && (
-                <div style={{ color: "#666", marginBottom: "4px" }}>
-                  Tags: {attachment.tags.join(", ")}
-                </div>
-              )}
-
-              {/* Show thumbnail if available */}
-              {hasThumbnail ? (
-                <div style={{ marginTop: "6px" }}>
-                  <img
-                    src={attachment.thumbnail_url}
-                    alt={`${attachment.name || attachment.file_name} thumbnail`}
-                    onError={() => handleImageError(attachmentKey)}
-                    style={{
-                      maxWidth: "100%",
-                      maxHeight: "100px",
-                      width: "auto",
-                      height: "auto",
-                      borderRadius: "4px",
-                      border: "1px solid #ddd",
-                      backgroundColor: "white",
-                      display: "block",
-                      marginBottom: "4px",
-                    }}
-                  />
-                  {attachment.url && (
-                    <a
-                      href={attachment.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      style={{
-                        color: "#0066cc",
-                        textDecoration: "underline",
-                        fontSize: "11px",
-                      }}
-                    >
-                      View Full Size
-                    </a>
-                  )}
-                </div>
-              ) : shouldShowAsImage ? (
-                <div style={{ marginTop: "6px" }}>
-                  <img
-                    src={attachment.url}
-                    alt={attachment.name || attachment.file_name}
-                    onError={() => handleImageError(attachmentKey)}
-                    style={{
-                      maxWidth: "100%",
-                      maxHeight: "150px",
-                      width: "auto",
-                      height: "auto",
-                      borderRadius: "4px",
-                      border: "1px solid #ddd",
-                      backgroundColor: "white",
-                      display: "block",
-                      marginBottom: "4px",
-                    }}
-                  />
-                  <a
-                    href={attachment.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    style={{
-                      color: "#0066cc",
-                      textDecoration: "underline",
-                      fontSize: "11px",
-                    }}
-                  >
-                    View Full Size
-                  </a>
-                </div>
-              ) : shouldShowAsPdf ? (
-                <div style={{ marginTop: "6px" }}>
-                  <PdfViewer
-                    url={attachment.url!}
-                    name={attachment.name || attachment.file_name}
-                    height={300}
-                    width="100%"
-                  />
-                </div>
-              ) : attachment.url ? (
-                <div style={{ marginTop: "6px" }}>
-                  <a
-                    href={attachment.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    style={{
-                      color: "#0066cc",
-                      textDecoration: "underline",
-                      fontSize: "12px",
-                      display: "inline-block",
-                      padding: "4px 8px",
-                      backgroundColor: "white",
-                      borderRadius: "3px",
-                      border: "1px solid #0066cc",
-                    }}
-                  >
-                    📎 Download/View
-                  </a>
-                  {hasImageError && (
-                    <div
-                      style={{
-                        color: "#999",
-                        fontSize: "10px",
-                        marginTop: "2px",
-                        fontStyle: "italic",
-                      }}
-                    >
-                      Image preview unavailable
-                    </div>
-                  )}
-                </div>
-              ) : (
-                <div
-                  style={{
-                    color: "#999",
-                    fontSize: "11px",
-                    fontStyle: "italic",
-                    marginTop: "4px",
-                  }}
-                >
-                  No preview available
-                </div>
-              )}
-            </div>
-          );
-        })}
-      </div>
-    );
-  };
-
-  const containerStyle: React.CSSProperties = {
-    maxWidth: "1400px",
-    margin: "0 auto",
-    padding: "20px",
-    backgroundColor: "rgba(255, 255, 255, 0.95)",
-    borderRadius: "15px",
-    boxShadow: "0 10px 30px rgba(0, 0, 0, 0.2)",
-    backdropFilter: "blur(10px)",
-  };
-
-  const headerStyle: React.CSSProperties = {
-    display: "flex",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: "20px",
-    color: "#333",
-  };
+    return () => {
+      sessionStorage.setItem('giftListScrollPosition', window.scrollY.toString());
+    };
+  }, [loading]);
 
   if (loading) {
     return (
-      <div style={containerStyle}>
-        <div style={{ textAlign: "center", padding: "40px" }}>
-          <div
-            style={{
-              width: "50px",
-              height: "50px",
-              border: "3px solid #f3f3f3",
-              borderTop: "3px solid #2196F3",
-              borderRadius: "50%",
-              animation: "spin 1s linear infinite",
-              margin: "0 auto 20px",
-            }}
-          />
-          <p>Loading gifts from Blackbaud API...</p>
+      <div style={{
+        maxWidth: "1400px",
+        margin: "0 auto",
+        padding: "20px",
+        backgroundColor: "rgba(255, 255, 255, 0.95)",
+        borderRadius: "15px",
+        boxShadow: "0 10px 30px rgba(0, 0, 0, 0.2)",
+        backdropFilter: "blur(10px)",
+        minHeight: "600px",
+        position: "relative"
+      }}>
+        <div style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          marginBottom: "20px",
+          color: "#333",
+          minHeight: "60px"
+        }}>
+          <h2>🎁 Blackbaud Gifts</h2>
         </div>
-        <style>{`
-          @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-          }
-        `}</style>
+
+        {/* Filter and Sort Controls - Keep consistent structure */}
+        <div style={{
+          marginBottom: "20px",
+          padding: "15px",
+          backgroundColor: "#f8f9fa",
+          borderRadius: "8px",
+          border: "1px solid #dee2e6",
+          display: "flex",
+          alignItems: "center",
+          gap: "15px",
+          flexWrap: "wrap",
+          minHeight: "60px"
+        }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+            <label style={{ fontWeight: "bold", fontSize: "14px" }}>{t('giftList.filters.type')}:</label>
+            <select disabled style={{
+              padding: "6px 10px",
+              border: "1px solid #ced4da",
+              borderRadius: "4px",
+              fontSize: "14px",
+              minWidth: "120px",
+              backgroundColor: "#e9ecef"
+            }}>
+              <option>{t('giftList.filters.allTypes')}</option>
+            </select>
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+            <label style={{ fontWeight: "bold", fontSize: "14px" }}>{t('giftList.filters.status')}:</label>
+            <select disabled style={{
+              padding: "6px 10px",
+              border: "1px solid #ced4da",
+              borderRadius: "4px",
+              fontSize: "14px",
+              minWidth: "120px",
+              backgroundColor: "#e9ecef"
+            }}>
+              <option>{t('giftList.filters.allStatuses')}</option>
+            </select>
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+            <label style={{ fontWeight: "bold", fontSize: "14px" }}>{t('giftList.filters.subtype')}:</label>
+            <select disabled style={{
+              padding: "6px 10px",
+              border: "1px solid #ced4da",
+              borderRadius: "4px",
+              fontSize: "14px",
+              minWidth: "120px",
+              backgroundColor: "#e9ecef"
+            }}>
+              <option>{t('giftList.filters.allSubtypes')}</option>
+            </select>
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+            <label style={{ fontWeight: "bold", fontSize: "14px" }}>{t('giftList.filters.sortBy')}:</label>
+            <select disabled style={{
+              padding: "6px 10px",
+              border: "1px solid #ced4da",
+              borderRadius: "4px",
+              fontSize: "14px",
+              minWidth: "140px",
+              backgroundColor: "#e9ecef"
+            }}>
+              <option>{t('giftList.filters.noSorting')}</option>
+            </select>
+          </div>
+        </div>
+
+        {/* Loading overlay */}
+        <div style={{
+          position: "absolute",
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: "rgba(255, 255, 255, 0.9)",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          borderRadius: "15px",
+          zIndex: 10
+        }}>
+          <div style={{ textAlign: "center" }}>
+            <div
+              style={{
+                width: "40px",
+                height: "40px",
+                border: "4px solid #f3f3f3",
+                borderTop: "4px solid #007bff",
+                borderRadius: "50%",
+                animation: "spin 1s linear infinite",
+                margin: "0 auto 16px"
+              }}
+            />
+            <p style={{ fontSize: "16px", color: "#666", margin: 0 }}>
+              {t('giftList.loading')}
+            </p>
+          </div>
+        </div>
       </div>
     );
   }
 
   if (error) {
     return (
-      <div style={containerStyle}>
-        <div style={headerStyle}>
-          <h2>🎁 Blackbaud Gifts</h2>
-        </div>
-        <div
-          style={{
-            color: "red",
-            backgroundColor: "#fee",
-            padding: "20px",
-            borderRadius: "8px",
-            border: "1px solid #fcc",
-          }}
-        >
-          <h3>⚠️ Error Loading Gifts</h3>
+      <div style={{
+        maxWidth: "1400px",
+        margin: "0 auto",
+        padding: "20px",
+        backgroundColor: "rgba(255, 255, 255, 0.95)",
+        borderRadius: "15px",
+        boxShadow: "0 10px 30px rgba(0, 0, 0, 0.2)",
+        backdropFilter: "blur(10px)",
+        minHeight: "600px"
+      }}>
+        <div style={{ textAlign: "center", padding: "40px", color: "#dc3545" }}>
+          <h2>❌ Error</h2>
           <p>{error}</p>
           <button
             onClick={() => fetchGifts()}
             style={{
-              marginTop: "10px",
               padding: "10px 20px",
-              backgroundColor: "#dc3545",
+              backgroundColor: "#007bff",
               color: "white",
               border: "none",
-              borderRadius: "4px",
+              borderRadius: "5px",
               cursor: "pointer",
+              fontSize: "14px"
             }}
           >
-            Retry
+            {t('giftList.retry')}
           </button>
         </div>
       </div>
@@ -775,63 +736,27 @@ const GiftList: React.FC = () => {
   }
 
   return (
-    <div style={containerStyle}>
-      <div style={headerStyle}>
-        <h2>🎁 Blackbaud Gifts ({sortedGifts.length} of {totalCount.toLocaleString()})</h2>
-        <button
-          onClick={() => fetchGifts()}
-          style={{
-            padding: "10px 20px",
-            backgroundColor: "#28a745",
-            color: "white",
-            border: "none",
-            borderRadius: "4px",
-            cursor: "pointer",
-          }}
-        >
-          Refresh
-        </button>
+    <div style={{
+      maxWidth: "1400px",
+      margin: "0 auto",
+      padding: "20px",
+      backgroundColor: "rgba(255, 255, 255, 0.95)",
+      borderRadius: "15px",
+      boxShadow: "0 10px 30px rgba(0, 0, 0, 0.2)",
+      backdropFilter: "blur(10px)",
+      minHeight: "600px",
+      position: "relative"
+    }}>
+      <div style={{
+        display: "flex",
+        justifyContent: "space-between",
+        alignItems: "center",
+        marginBottom: "20px",
+        color: "#333",
+        minHeight: "60px"
+      }}>
+        <h2>🎁 {t('giftList.title')}</h2>
       </div>
-
-      {/* List Filter Alert */}
-      {filters.list_id && (
-        <div style={{
-          marginBottom: "20px",
-          padding: "12px 16px",
-          backgroundColor: "#d1ecf1",
-          border: "1px solid #bee5eb",
-          borderRadius: "8px",
-          color: "#0c5460",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between"
-        }}>
-          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-            <span style={{ fontSize: "16px" }}>📝</span>
-            <span>
-              <strong>Filtered by List:</strong> Showing gifts from List ID {filters.list_id}
-            </span>
-          </div>
-          <button
-            onClick={() => {
-              const newFilters = { ...filters, list_id: '' };
-              setFilters(newFilters);
-              updateUrlParams(newFilters, sortColumn, sortDirection);
-            }}
-            style={{
-              padding: "4px 8px",
-              backgroundColor: "#0c5460",
-              color: "white",
-              border: "none",
-              borderRadius: "4px",
-              cursor: "pointer",
-              fontSize: "12px"
-            }}
-          >
-            Clear List Filter
-          </button>
-        </div>
-      )}
 
       {/* Filter and Sort Controls */}
       <div style={{
@@ -843,12 +768,13 @@ const GiftList: React.FC = () => {
         display: "flex",
         alignItems: "center",
         gap: "15px",
-        flexWrap: "wrap"
+        flexWrap: "wrap",
+        minHeight: "60px"
       }}>
         <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-          <label style={{ fontWeight: "bold", fontSize: "14px" }}>Type:</label>
+          <label style={{ fontWeight: "bold", fontSize: "14px" }}>{t('giftList.filters.type')}:</label>
           <select
-            value={filters.type}
+            value={immediateFilters.type}
             onChange={(e) => handleFilterChange('type', e.target.value)}
             style={{
               padding: "6px 10px",
@@ -858,7 +784,7 @@ const GiftList: React.FC = () => {
               minWidth: "120px"
             }}
           >
-            <option value="">All Types</option>
+            <option value="">{t('giftList.filters.allTypes')}</option>
             {uniqueTypes.map(type => (
               <option key={type} value={type}>{type}</option>
             ))}
@@ -866,9 +792,9 @@ const GiftList: React.FC = () => {
         </div>
 
         <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-          <label style={{ fontWeight: "bold", fontSize: "14px" }}>Status:</label>
+          <label style={{ fontWeight: "bold", fontSize: "14px" }}>{t('giftList.filters.status')}:</label>
           <select
-            value={filters.status}
+            value={immediateFilters.status}
             onChange={(e) => handleFilterChange('status', e.target.value)}
             style={{
               padding: "6px 10px",
@@ -878,7 +804,7 @@ const GiftList: React.FC = () => {
               minWidth: "120px"
             }}
           >
-            <option value="">All Statuses</option>
+            <option value="">{t('giftList.filters.allStatuses')}</option>
             {uniqueStatuses.map(status => (
               <option key={status} value={status}>{status}</option>
             ))}
@@ -886,9 +812,9 @@ const GiftList: React.FC = () => {
         </div>
 
         <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-          <label style={{ fontWeight: "bold", fontSize: "14px" }}>Subtype:</label>
+          <label style={{ fontWeight: "bold", fontSize: "14px" }}>{t('giftList.filters.subtype')}:</label>
           <select
-            value={filters.subtype}
+            value={immediateFilters.subtype}
             onChange={(e) => handleFilterChange('subtype', e.target.value)}
             style={{
               padding: "6px 10px",
@@ -898,7 +824,7 @@ const GiftList: React.FC = () => {
               minWidth: "120px"
             }}
           >
-            <option value="">All Subtypes</option>
+            <option value="">{t('giftList.filters.allSubtypes')}</option>
             {uniqueSubtypes.map(subtype => (
               <option key={subtype} value={subtype}>{subtype}</option>
             ))}
@@ -906,7 +832,7 @@ const GiftList: React.FC = () => {
         </div>
 
         <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-          <label style={{ fontWeight: "bold", fontSize: "14px" }}>Sort by:</label>
+          <label style={{ fontWeight: "bold", fontSize: "14px" }}>{t('giftList.filters.sortBy')}:</label>
           <select
             value={sortColumn || ''}
             onChange={(e) => handleSort(e.target.value)}
@@ -918,15 +844,15 @@ const GiftList: React.FC = () => {
               minWidth: "140px"
             }}
           >
-            <option value="">No sorting</option>
-            <option value="amount">Amount</option>
-            <option value="date">Date</option>
-            <option value="constituent">Constituent</option>
-            <option value="type">Type</option>
-            <option value="status">Status</option>
-            <option value="fund">Fund</option>
-            <option value="campaign">Campaign</option>
-            <option value="appeal">Appeal</option>
+            <option value="">{t('giftList.filters.noSorting')}</option>
+            <option value="amount">{t('giftList.columns.amount')}</option>
+            <option value="date">{t('giftList.columns.date')}</option>
+            <option value="constituent">{t('giftList.columns.constituent')}</option>
+            <option value="type">{t('giftList.columns.type')}</option>
+            <option value="status">{t('giftList.columns.status')}</option>
+            <option value="fund">{t('giftList.columns.fund')}</option>
+            <option value="campaign">{t('giftList.columns.campaign')}</option>
+            <option value="appeal">{t('giftList.columns.appeal')}</option>
           </select>
           {sortColumn && (
             <button
@@ -947,7 +873,7 @@ const GiftList: React.FC = () => {
           )}
         </div>
 
-        {(filters.type || filters.status || filters.subtype || filters.list_id) && (
+        {(immediateFilters.type || immediateFilters.status || immediateFilters.subtype || immediateFilters.list_id) && (
           <button
             onClick={clearFilters}
             style={{
@@ -960,456 +886,181 @@ const GiftList: React.FC = () => {
               fontSize: "14px"
             }}
           >
-            Clear Filters
+            {t('giftList.filters.clear')}
           </button>
         )}
 
         <div style={{ marginLeft: "auto", fontSize: "14px", color: "#6c757d" }}>
-          {sortedGifts.length !== totalCount && (
-            <span>Showing {sortedGifts.length} of {totalCount.toLocaleString()} gifts</span>
+          {gifts.length !== totalCount && (
+            <span>{t('giftList.showing', { shown: gifts.length, total: totalCount.toLocaleString() })}</span>
           )}
         </div>
       </div>
 
       {gifts.length === 0 ? (
         <div style={{ textAlign: "center", padding: "40px", color: "#666" }}>
-          <p>No gifts found in your Blackbaud account.</p>
+          <p>{t('giftList.noGifts')}</p>
         </div>
       ) : (
         <>
           {/* Cards Grid */}
-          <div style={{
+          <div className="gifts-grid" style={{
             display: "grid",
-            gridTemplateColumns: "repeat(auto-fill, minmax(600px, 1fr))",
             gap: "20px",
-            marginBottom: "20px"
+            marginBottom: "20px",
+            minHeight: "400px"
           }}>
             {sortedGifts.map((gift) => (
-              <div
+              <GiftCard
                 key={gift.id}
-                style={{
-                  backgroundColor: "white",
-                  borderRadius: "12px",
-                  boxShadow: "0 4px 12px rgba(0, 0, 0, 0.1)",
-                  border: "1px solid #e9ecef",
-                  overflow: "hidden",
-                  transition: "transform 0.2s, box-shadow 0.2s",
-                  cursor: "pointer"
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.transform = "translateY(-2px)";
-                  e.currentTarget.style.boxShadow = "0 8px 24px rgba(0, 0, 0, 0.15)";
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.transform = "translateY(0)";
-                  e.currentTarget.style.boxShadow = "0 4px 12px rgba(0, 0, 0, 0.1)";
-                }}
-                onClick={() => toggleRowExpansion(gift.id)}
-              >
-                {/* Card Header - Constituent Name */}
-                <div style={{
-                  padding: "16px 20px 12px",
-                  borderBottom: "1px solid #f0f0f0",
-                  backgroundColor: "#f8f9fa"
-                }}>
-                  <div style={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    alignItems: "flex-start"
-                  }}>
-                    <div style={{ flex: 1 }}>
-                      <h3 style={{
-                        margin: 0,
-                        fontSize: "18px",
-                        fontWeight: "bold",
-                        color: "#2c3e50",
-                        marginBottom: "4px"
-                      }}>
-                        {gift.constituent_id ? (
-                          <>
-                            {cachedConstituents[gift.constituent_id]?.name || "Loading..."}
-                            {cachedConstituents[gift.constituent_id]?.lookup_id && (
-                              <span style={{
-                                fontSize: "12px",
-                                color: "#6c757d",
-                                marginLeft: "8px",
-                                fontWeight: "normal"
-                              }}>
-                                (ID: {cachedConstituents[gift.constituent_id]?.lookup_id})
-                              </span>
-                            )}
-                          </>
-                        ) : (
-                          <span style={{ color: "#6c757d" }}>No constituent</span>
-                        )}
-                      </h3>
-                      <p style={{
-                        margin: "4px 0 0",
-                        fontSize: "12px",
-                        color: "#6c757d",
-                        fontFamily: "monospace"
-                      }}>
-                        Gift ID: {gift.id}
-                      </p>
-                    </div>
-                    <div style={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: "8px"
-                    }}>
-                      {gift.is_anonymous && (
-                        <span style={{
-                          backgroundColor: "#ffc107",
-                          color: "#212529",
-                          padding: "2px 6px",
-                          borderRadius: "12px",
-                          fontSize: "11px",
-                          fontWeight: "bold"
-                        }}>
-                          ANON
-                        </span>
-                      )}
-                      <button
-                        style={{
-                          background: "none",
-                          border: "none",
-                          cursor: "pointer",
-                          fontSize: "16px",
-                          color: "#007bff",
-                          padding: "4px"
-                        }}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          toggleRowExpansion(gift.id);
-                        }}
-                      >
-                        {expandedRows.has(gift.id) ? "▼" : "▶"}
-                      </button>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Card Body */}
-                <div style={{ padding: "16px 20px" }}>
-                  {/* Amount - Now prominent in body */}
-                  <div style={{ marginBottom: "16px" }}>
-                    <div style={{
-                      fontSize: "24px",
-                      fontWeight: "bold",
-                      color: "#28a745",
-                      marginBottom: "4px"
-                    }}>
-                      {formatCurrency(gift.amount)}
-                    </div>
-                    <div style={{
-                      fontSize: "12px",
-                      color: "#6c757d"
-                    }}>
-                      Gift Amount
-                    </div>
-                  </div>
-
-                  {/* Key Details Grid */}
-                  <div style={{
-                    display: "grid",
-                    gridTemplateColumns: "1fr 1fr 1fr",
-                    gap: "12px",
-                    fontSize: "14px",
-                    marginBottom: "16px"
-                  }}>
-                    <div>
-                      <div style={{
-                        color: "#6c757d",
-                        fontSize: "12px",
-                        marginBottom: "2px"
-                      }}>
-                        Date
-                      </div>
-                      <div style={{ fontWeight: "500" }}>
-                        {formatDate(gift.date)}
-                      </div>
-                    </div>
-
-                    <div>
-                      <div style={{
-                        color: "#6c757d",
-                        fontSize: "12px",
-                        marginBottom: "2px"
-                      }}>
-                        Type
-                      </div>
-                      <div style={{ fontWeight: "500" }}>
-                        {gift.type || "N/A"}
-                        {gift.subtype && (
-                          <div style={{ fontSize: "11px", color: "#6c757d" }}>
-                            {gift.subtype}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-
-                    <div>
-                      <div style={{
-                        color: "#6c757d",
-                        fontSize: "12px",
-                        marginBottom: "2px"
-                      }}>
-                        Status
-                      </div>
-                      <div>
-                        <span style={{
-                          padding: "2px 8px",
-                          borderRadius: "12px",
-                          fontSize: "11px",
-                          fontWeight: "bold",
-                          backgroundColor: gift.gift_status === "Active" ? "#d4edda" : "#f8d7da",
-                          color: gift.gift_status === "Active" ? "#155724" : "#721c24"
-                        }}>
-                          {gift.gift_status || "N/A"}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Fund, Campaign & Appeal */}
-                  <div style={{
-                    display: "grid",
-                    gridTemplateColumns: "1fr 1fr 1fr",
-                    gap: "12px",
-                    fontSize: "13px",
-                    marginBottom: "16px"
-                  }}>
-                    <div>
-                      <div style={{
-                        color: "#6c757d",
-                        fontSize: "11px",
-                        marginBottom: "2px"
-                      }}>
-                        Fund
-                      </div>
-                      <div style={{ fontWeight: "500" }}>
-                        {gift.fund?.description || "N/A"}
-                      </div>
-                    </div>
-
-                    <div>
-                      <div style={{
-                        color: "#6c757d",
-                        fontSize: "11px",
-                        marginBottom: "2px"
-                      }}>
-                        Campaign
-                      </div>
-                      <div style={{ fontWeight: "500" }}>
-                        {gift.campaign?.description || "N/A"}
-                      </div>
-                    </div>
-
-                    <div>
-                      <div style={{
-                        color: "#6c757d",
-                        fontSize: "11px",
-                        marginBottom: "2px"
-                      }}>
-                        Appeal
-                      </div>
-                      <div style={{ fontWeight: "500" }}>
-                        {gift.appeal?.description || "N/A"}
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Attachments Section - Always visible */}
-                  <div style={{
-                    borderTop: "1px solid #f0f0f0",
-                    paddingTop: "16px"
-                  }}>
-                    <h4 style={{ 
-                      margin: "0 0 12px", 
-                      fontSize: "14px", 
-                      color: "#495057",
-                      display: "flex",
-                      alignItems: "center",
-                      gap: "6px"
-                    }}>
-                      📎 Attachments
-                      {loadingAttachments.has(gift.id) && (
-                        <div
-                          style={{
-                            width: "12px",
-                            height: "12px",
-                            border: "2px solid #f3f3f3",
-                            borderTop: "2px solid #2196F3",
-                            borderRadius: "50%",
-                            animation: "spin 1s linear infinite"
-                          }}
-                        />
-                      )}
-                    </h4>
-                    <div onClick={(e) => e.stopPropagation()}>
-                      {renderAttachments(gift)}
-                    </div>
-                  </div>
-                </div>
-
-                {/* Expanded Details */}
-                {expandedRows.has(gift.id) && (
-                  <div style={{
-                    borderTop: "1px solid #f0f0f0",
-                    backgroundColor: "#f8f9fa",
-                    padding: "20px"
-                  }}>
-                    <div style={{
-                      display: "grid",
-                      gridTemplateColumns: "1fr 1fr",
-                      gap: "20px",
-                      marginBottom: "20px"
-                    }}>
-                      <div>
-                        <h4 style={{ margin: "0 0 12px", fontSize: "16px", color: "#495057" }}>
-                          Additional Details
-                        </h4>
-                        <div style={{ fontSize: "13px", lineHeight: "1.5" }}>
-                          <p style={{ margin: "6px 0" }}>
-                            <strong>Acknowledgement Status:</strong>{" "}
-                            {gift.acknowledgement_status || "N/A"}
-                          </p>
-                          <p style={{ margin: "6px 0" }}>
-                            <strong>Acknowledgement Date:</strong>{" "}
-                            {formatDate(gift.acknowledgement_date)}
-                          </p>
-                          <p style={{ margin: "6px 0" }}>
-                            <strong>Receipt Amount:</strong>{" "}
-                            {formatCurrency(gift.receipt_amount)}
-                          </p>
-                          <p style={{ margin: "6px 0" }}>
-                            <strong>Receipt Date:</strong>{" "}
-                            {formatDate(gift.receipt_date)}
-                          </p>
-                          <p style={{ margin: "6px 0" }}>
-                            <strong>Batch #:</strong>{" "}
-                            {gift.batch_number || "N/A"}
-                          </p>
-                          <p style={{ margin: "6px 0" }}>
-                            <strong>Reference:</strong>{" "}
-                            {gift.reference || "N/A"}
-                          </p>
-                          <p style={{ margin: "6px 0" }}>
-                            <strong>Gift Aid Status:</strong>{" "}
-                            {gift.gift_aid_qualification_status || "N/A"}
-                          </p>
-                          <p style={{ margin: "6px 0" }}>
-                            <strong>Date Added:</strong>{" "}
-                            {formatDate(gift.date_added)}
-                          </p>
-                          <p style={{ margin: "6px 0" }}>
-                            <strong>Date Modified:</strong>{" "}
-                            {formatDate(gift.date_modified)}
-                          </p>
-                        </div>
-                      </div>
-                      <div>
-                        <h4 style={{ margin: "0 0 12px", fontSize: "16px", color: "#495057" }}>
-                          Payments & Soft Credits
-                        </h4>
-                        <div style={{ fontSize: "13px", lineHeight: "1.5" }}>
-                          {gift.payments && gift.payments.length > 0 ? (
-                            <div>
-                              <strong>Payments:</strong>
-                              {gift.payments.map((payment: GiftPayment, index: number) => (
-                                <div
-                                  key={index}
-                                  style={{
-                                    marginLeft: "10px",
-                                    marginTop: "4px",
-                                    padding: "6px",
-                                    backgroundColor: "white",
-                                    borderRadius: "4px",
-                                    border: "1px solid #e9ecef"
-                                  }}
-                                >
-                                  • Method: {payment.payment_method || "N/A"}
-                                  <br />• Check #: {payment.check_number || "N/A"}
-                                  <br />• Date: {formatDate(payment.check_date)}
-                                </div>
-                              ))}
-                            </div>
-                          ) : (
-                            <p style={{ margin: "6px 0" }}>No payment details available</p>
-                          )}
-
-                          {gift.soft_credits && gift.soft_credits.length > 0 && (
-                            <div style={{ marginTop: "12px" }}>
-                              <strong>Soft Credits:</strong>
-                              {gift.soft_credits.map((credit: SoftCredit, index: number) => (
-                                <div
-                                  key={index}
-                                  style={{
-                                    marginLeft: "10px",
-                                    marginTop: "4px",
-                                    padding: "6px",
-                                    backgroundColor: "white",
-                                    borderRadius: "4px",
-                                    border: "1px solid #e9ecef"
-                                  }}
-                                >
-                                  • {credit.constituent.name}: {formatCurrency(credit.amount)}
-                                </div>
-                              ))}
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </div>
+                gift={gift}
+                expandedRows={expandedRows}
+                onToggleExpansion={memoizedToggleRowExpansion}
+                onHandlePdfLoaded={memoizedHandlePdfLoaded}
+                onHandleImageError={memoizedHandleImageError}
+                formatCurrency={formatCurrency}
+                formatDate={formatDate}
+              />
             ))}
           </div>
 
-          {/* Load More Button */}
+          {/* Load More Trigger */}
           {nextLink && !loading && (
-            <div style={{ textAlign: "center", marginTop: "20px" }}>
-              <button
-                onClick={loadMoreGifts}
-                disabled={loadingMore}
-                style={{
-                  padding: "12px 24px",
-                  backgroundColor: loadingMore ? "#6c757d" : "#007bff",
-                  color: "white",
-                  border: "none",
-                  borderRadius: "6px",
-                  cursor: loadingMore ? "not-allowed" : "pointer",
-                  fontSize: "14px",
-                  fontWeight: "bold",
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "8px",
-                  margin: "0 auto"
-                }}
-              >
-                {loadingMore ? (
-                  <>
-                    <div
-                      style={{
-                        width: "16px",
-                        height: "16px",
-                        border: "2px solid #ffffff",
-                        borderTop: "2px solid transparent",
-                        borderRadius: "50%",
-                        animation: "spin 1s linear infinite"
-                      }}
-                    />
-                    Loading More...
-                  </>
-                ) : (
-                  "Load More Gifts"
-                )}
-              </button>
+            <div
+              ref={loadMoreTriggerRef}
+              style={{
+                textAlign: "center",
+                marginTop: "20px",
+                padding: "20px",
+                minHeight: "60px",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center"
+              }}
+            >
+              {loadingMore ? (
+                <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                  <div
+                    style={{
+                      width: "20px",
+                      height: "20px",
+                      border: "2px solid #f3f3f3",
+                      borderTop: "2px solid #007bff",
+                      borderRadius: "50%",
+                      animation: "spin 1s linear infinite"
+                    }}
+                  />
+                  <span>{t('giftList.loadingMore')}</span>
+                </div>
+              ) : (
+                <span style={{ color: "#666", fontSize: "14px" }}>
+                  {t('giftList.scrollForMore')}
+                </span>
+              )}
             </div>
           )}
         </>
       )}
+
+      {/* Queue Manager */}
+      <QueueManager showDetails={true} />
+
+      {/* PDF Loading Statistics */}
+      <LazyLoadingStats
+        totalPdfs={pdfStats.totalPdfs}
+        loadedPdfs={pdfStats.loadedPdfs}
+        pendingPdfs={pdfStats.pendingPdfs}
+        showDetails={true}
+      />
+
+      {/* PDF Download Status */}
+      <PdfDownloadStatus showDetails={true} />
+
+      {/* CSS Styles for responsive grid */}
+      <style>{`
+        @keyframes spin {
+          0% { transform: rotate(0deg); }
+          100% { transform: rotate(360deg); }
+        }
+        
+        .gifts-grid {
+          /* Mobile: 1 column */
+          grid-template-columns: 1fr;
+        }
+        
+        /* Tablet: 2 columns */
+        @media (min-width: 768px) {
+          .gifts-grid {
+            grid-template-columns: repeat(2, 1fr);
+          }
+        }
+        
+        /* Desktop: 3 columns */
+        @media (min-width: 1024px) {
+          .gifts-grid {
+            grid-template-columns: repeat(3, 1fr);
+          }
+        }
+        
+        /* Large Desktop: 4 columns */
+        @media (min-width: 1400px) {
+          .gifts-grid {
+            grid-template-columns: repeat(4, 1fr);
+          }
+        }
+        
+        /* Extra Large: 5+ columns */
+        @media (min-width: 1800px) {
+          .gifts-grid {
+            grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+          }
+        }
+        
+        .gift-card {
+          transition: all 0.2s ease-in-out;
+          transform: translateZ(0);
+          will-change: transform;
+          min-height: 200px;
+          width: 100%;
+        }
+        
+        .gift-card:hover {
+          transform: translateY(-2px) translateZ(0);
+          box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+        }
+        
+        .loading-placeholder {
+          height: 18px;
+          background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+          background-size: 200% 100%;
+          animation: loading 1.5s infinite;
+          border-radius: 4px;
+          min-width: 120px;
+          display: inline-block;
+        }
+        
+        @keyframes loading {
+          0% { background-position: 200% 0; }
+          100% { background-position: -200% 0; }
+        }
+        
+        .constituent-name {
+          min-height: 24px;
+          display: flex;
+          align-items: center;
+          height: 24px;
+          overflow: hidden;
+        }
+
+        .constituent-name h3 {
+          margin: 0;
+          line-height: 24px;
+          height: 24px;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+        }
+      `}</style>
     </div>
   );
 };

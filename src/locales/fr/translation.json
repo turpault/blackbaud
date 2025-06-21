@@ -2,11 +2,34 @@
   "common": {
     "loading": "Chargement...",
     "loadingContent": "Chargement du contenu...",
-    "checkingAuth": "Vérification de l'authentification..."
+    "checkingAuth": "Vérification de l'authentification...",
+    "retry": "Réessayer",
+    "clear": "Effacer",
+    "clearAll": "Tout effacer",
+    "showDetails": "Afficher les détails",
+    "hideDetails": "Masquer les détails",
+    "open": "Ouvrir",
+    "download": "Télécharger",
+    "reset": "Réinitialiser",
+    "zoomIn": "Zoom +",
+    "zoomOut": "Zoom -",
+    "total": "Total",
+    "completed": "Terminé",
+    "pending": "En attente",
+    "failed": "Échoué",
+    "running": "En cours",
+    "active": "Actif",
+    "idle": "Inactif",
+    "averageTime": "Temps moy",
+    "pages": "Pages",
+    "rendered": "Rendu",
+    "rendering": "Rendu en cours",
+    "more": "de plus",
+    "failed": "échoué"
   },
   "home": {
-    "title": "🚀 Application OAuth Blackbaud",
-    "subtitle": "Connectez-vous en toute sécurité à l'API de Blackbaud en utilisant l'authentification OAuth 2.0. Cette application démontre un flux OAuth complet avec des pratiques React modernes.",
+    "title": "🏥 Fondation HMR : Dons",
+    "subtitle": "Connectez-vous en toute sécurité avec l'API Blackbaud en utilisant l'authentification OAuth 2.0. Cette application démontre un flux OAuth complet avec des pratiques React modernes.",
     "features": {
       "secure": {
         "title": "🔒 Sécurisé",
@@ -17,16 +40,16 @@
         "description": "React moderne avec gestion d'état efficace"
       },
       "beautiful": {
-        "title": "🎨 Magnifique",
-        "description": "Interface utilisateur épurée avec animations fluides"
+        "title": "🎨 Beau",
+        "description": "Interface propre avec animations fluides"
       }
     },
     "integration": {
       "title": "Intégration API directe :",
-      "directApi": "🔗 Appels d'API Blackbaud directs",
+      "directApi": "🔗 Appels API Blackbaud directs",
       "clientOauth": "🔐 Flux OAuth 2.0 côté client",
-      "secureStorage": "💾 Stockage de jetons sécurisé",
-      "autoRefresh": "🔄 Actualisation automatique des jetons"
+      "secureStorage": "💾 Stockage sécurisé des tokens",
+      "autoRefresh": "🔄 Actualisation automatique des tokens"
     }
   },
   "login": {
@@ -36,7 +59,7 @@
     "buttonTitle": "Se connecter avec Blackbaud OAuth2"
   },
   "dashboard": {
-    "title": "🎯 Tableau de bord Raiser's Edge NXT",
+    "title": "🏥 Fondation HMR : Dons",
     "subtitle": "Vous vous êtes authentifié avec succès avec Blackbaud !",
     "logoutPage": "Page de déconnexion",
     "quickLogout": "Déconnexion rapide",
@@ -52,5 +75,98 @@
       "title": "👤 Informations du profil",
       "notAvailable": "Les informations du profil ne sont pas disponibles."
     }
-  }
+  },
+  "queueManager": {
+    "title": "🚀 Gestionnaire de file d'attente",
+    "active": "Actif",
+    "showDetails": "Afficher les détails",
+    "hideDetails": "Masquer les détails",
+    "clearAll": "Tout effacer",
+    "totalTasks": "Tâches totales",
+    "completed": "Terminé",
+    "pending": "En attente",
+    "failed": "Échoué",
+    "queueDetails": "Détails de la file d'attente",
+    "constituentQueue": "File d'attente des constituants",
+    "attachmentQueue": "File d'attente des pièces jointes",
+    "pdfQueue": "File d'attente PDF",
+    "running": "En cours",
+    "avgTime": "Temps moy"
+  },
+  "giftList": {
+    "title": "Dons",
+    "loading": "Chargement des dons...",
+    "noGifts": "Aucun don trouvé",
+    "loadMore": "Charger plus",
+    "loadingMore": "Chargement en cours...",
+    "scrollForMore": "Faites défiler pour plus de dons...",
+    "filters": {
+      "title": "Filtres",
+      "clear": "Effacer les filtres",
+      "list": "Liste",
+      "type": "Type",
+      "status": "Statut",
+      "subtype": "Sous-type",
+      "allTypes": "Tous les types",
+      "allStatuses": "Tous les statuts",
+      "allSubtypes": "Tous les sous-types",
+      "sortBy": "Trier par",
+      "noSorting": "Aucun tri"
+    },
+    "columns": {
+      "id": "ID",
+      "constituent": "Constituant",
+      "amount": "Montant",
+      "date": "Date",
+      "type": "Type",
+      "subtype": "Sous-type",
+      "status": "Statut",
+      "designation": "Désignation",
+      "receiptDate": "Date de réception",
+      "batchNumber": "Numéro de lot",
+      "reference": "Référence",
+      "anonymous": "Anonyme",
+      "attachments": "Pièces jointes"
+    },
+    "attachments": {
+      "title": "Pièces jointes",
+      "loading": "Chargement des pièces jointes...",
+      "noAttachments": "Aucune pièce jointe",
+      "image": "Image",
+      "pdf": "PDF",
+      "file": "Fichier",
+      "download": "Télécharger",
+      "open": "Ouvrir",
+      "rendering": "Rendu en cours...",
+      "failed": "Échec du rendu"
+    },
+    "constituent": {
+      "loading": "Chargement du constituant...",
+      "notFound": "Constituant non trouvé"
+    }
+  },
+  "pdfViewer": {
+    "loading": "Chargement du PDF...",
+    "rendering": "Rendu des pages...",
+    "page": "Page",
+    "open": "Ouvrir",
+    "download": "Télécharger",
+    "reset": "Réinitialiser",
+    "zoomIn": "Zoom +",
+    "zoomOut": "Zoom -",
+    "failed": "Échec du chargement du PDF",
+    "authenticationRequired": "Authentification requise : Veuillez vous connecter pour voir ce fichier PDF.",
+    "retry": "Réessayer"
+  },
+  "lists": {
+    "title": "Listes",
+    "loading": "Chargement des listes...",
+    "noLists": "Aucune liste trouvée",
+    "columns": {
+      "name": "Nom",
+      "description": "Description",
+      "constituentCount": "Nombre de constituants"
+    }
+  },
+  "showing": "Affichage de {{shown}} sur {{total}} dons"
 } 
