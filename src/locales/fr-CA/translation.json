@@ -1,66 +1,66 @@
 {
   "common": {
-    "loading": "Chargement...",
-    "loadingContent": "Chargement du contenu...",
-    "checkingAuth": "Vérification de l'authentification...",
-    "retry": "Réessayer",
-    "clear": "Effacer",
-    "clearAll": "Tout effacer",
-    "showDetails": "Afficher les détails",
-    "hideDetails": "Masquer les détails",
-    "open": "Ouvrir",
-    "download": "Télécharger",
-    "reset": "Réinitialiser",
+    "loading": "Ça charge, patience mon chum !",
+    "loadingContent": "Ça charge le stock, ça va pas être long !",
+    "checkingAuth": "On vérifie si t'es ben connecté...",
+    "retry": "Essayer encore une fois",
+    "clear": "Nettoyer ça",
+    "clearAll": "Tout scraper",
+    "showDetails": "Montrer les détails",
+    "hideDetails": "Cacher les détails",
+    "open": "Ouvrir ça",
+    "download": "Télécharger le stock",
+    "reset": "Remettre à zéro",
     "zoomIn": "Zoom +",
     "zoomOut": "Zoom -",
     "total": "Total",
-    "completed": "Terminé",
-    "pending": "En attente",
-    "failed": "Échoué",
-    "running": "En cours",
+    "completed": "Fini, c'est réglé !",
+    "pending": "En attente, ça s'en vient...",
+    "failed": "Ça a pas marché, dommage !",
+    "running": "Ça roule comme du beurre !",
     "active": "Actif",
     "idle": "Inactif",
     "averageTime": "Temps moy",
     "pages": "Pages",
     "rendered": "Rendu",
-    "rendering": "Rendu en cours",
+    "rendering": "Ça rend, patience !",
     "more": "de plus",
     "failed": "échoué"
   },
   "home": {
     "title": "🏥 Fondation HMR : Dons",
-    "subtitle": "Connectez-vous en toute sécurité avec l'API Blackbaud en utilisant l'authentification OAuth 2.0. Cette application démontre un flux OAuth complet avec des pratiques React modernes.",
+    "subtitle": "Connecte-toi en toute sécurité avec l'API Blackbaud en utilisant l'authentification OAuth 2.0. Cette application démontre un flux OAuth complet avec des pratiques React modernes, mon chum !",
     "features": {
       "secure": {
-        "title": "🔒 Sécurisé",
-        "description": "OAuth 2.0 avec PKCE et vérification d'état"
+        "title": "🔒 Sécurisé comme un coffre-fort",
+        "description": "OAuth 2.0 avec PKCE et vérification d'état - ben solide !"
       },
       "fast": {
-        "title": "⚡ Rapide",
-        "description": "React moderne avec gestion d'état efficace"
+        "title": "⚡ Rapide comme l'éclair",
+        "description": "React moderne avec gestion d'état efficace - ça décolle !"
       },
       "beautiful": {
-        "title": "🎨 Beau",
-        "description": "Interface propre avec animations fluides"
+        "title": "🎨 Beau comme un cœur",
+        "description": "Interface propre avec animations fluides - c'est du bonbon !"
       }
     },
     "integration": {
       "title": "Intégration API directe :",
-      "directApi": "🔗 Appels API Blackbaud directs",
-      "clientOauth": "🔐 Flux OAuth 2.0 côté client",
-      "secureStorage": "💾 Stockage sécurisé des tokens",
-      "autoRefresh": "🔄 Actualisation automatique des tokens"
+      "directApi": "🔗 Appels API Blackbaud directs - direct comme une flèche !",
+      "clientOauth": "🔐 Flux OAuth 2.0 côté client - ben sécurisé !",
+      "secureStorage": "💾 Stockage sécurisé des tokens - gardé au chaud !",
+      "autoRefresh": "🔄 Actualisation automatique des tokens - ça se fait tout seul !"
     }
   },
   "login": {
     "buttonText": "🔐 Se connecter avec Blackbaud",
-    "clickToAuth": "Cliquez pour vous authentifier avec votre compte Blackbaud",
-    "secureAuth": "Authentification OAuth2 sécurisée via serveur proxy",
+    "clickToAuth": "Clique icitte pour te connecter avec ton compte Blackbaud, mon chum !",
+    "secureAuth": "Authentification OAuth2 sécurisée via serveur proxy - ben safe !",
     "buttonTitle": "Se connecter avec Blackbaud OAuth2"
   },
   "dashboard": {
     "title": "🏥 Fondation HMR : Dons",
-    "subtitle": "Vous vous êtes authentifié avec succès avec Blackbaud !",
+    "subtitle": "T'es ben connecté avec Blackbaud, mon vieux !",
     "logoutPage": "Page de déconnexion",
     "quickLogout": "Déconnexion rapide",
     "quickLogoutTitle": "Déconnexion rapide",
@@ -73,7 +73,7 @@
     },
     "profile": {
       "title": "👤 Informations du profil",
-      "notAvailable": "Les informations du profil ne sont pas disponibles."
+      "notAvailable": "Les informations du profil sont pas disponibles, dommage !"
     }
   },
   "queueManager": {
@@ -81,24 +81,24 @@
     "active": "Actif",
     "showDetails": "Montrer les détails",
     "hideDetails": "Cacher les détails",
-    "clearAll": "Tout effacer",
+    "clearAll": "Tout scraper",
     "totalTasks": "Tâches totales",
-    "completed": "Fini",
-    "pending": "En attente",
-    "failed": "Raté",
+    "completed": "Fini, c'est réglé !",
+    "pending": "En attente, ça s'en vient...",
+    "failed": "Ça a pas marché, dommage !",
     "queueDetails": "Détails de la file d'attente",
     "constituentQueue": "File d'attente des constituants",
     "attachmentQueue": "File d'attente des pièces jointes",
     "pdfQueue": "File d'attente PDF",
-    "running": "Ça roule",
+    "running": "Ça roule comme du beurre !",
     "avgTime": "Temps moy"
   },
   "giftList": {
     "title": "Dons",
-    "loading": "Ça charge les dons...",
-    "noGifts": "Y'a pas de dons icitte, mon vieux !",
+    "loading": "Ça charge les dons, patience mon chum !",
+    "noGifts": "Y'a pas de dons icitte, mon vieux ! C'est vide comme un frigidaire d'étudiant !",
     "loadMore": "En avoir plus",
-    "loadingMore": "Ça charge encore...",
+    "loadingMore": "Ça charge encore, ça va pas être long !",
     "scrollForMore": "Fais défiler pour en avoir plus, champion !",
     "filters": {
       "title": "Filtres",
@@ -130,39 +130,39 @@
     },
     "attachments": {
       "title": "Pièces jointes",
-      "loading": "Ça charge les pièces jointes...",
-      "noAttachments": "Pas de pièces jointes",
+      "loading": "Ça charge les pièces jointes, patience !",
+      "noAttachments": "Pas de pièces jointes, c'est vide !",
       "image": "Image",
       "pdf": "PDF",
       "file": "Fichier",
       "download": "Télécharger",
       "open": "Ouvrir",
-      "rendering": "Ça rend...",
-      "failed": "Ça a pas marché"
+      "rendering": "Ça rend, patience mon chum !",
+      "failed": "Ça a pas marché, dommage !"
     },
     "constituent": {
-      "loading": "Ça charge le constituant...",
-      "notFound": "Constituant pas trouvé"
+      "loading": "Ça charge le constituant, ça va pas être long !",
+      "notFound": "Constituant pas trouvé, il doit être caché quelque part !"
     },
-    "showing": "Y'a {{shown}} dons sur {{total}} au total"
+    "showing": "Y'a {{shown}} dons sur {{total}} au total, mon chum !"
   },
   "pdfViewer": {
-    "loading": "Ça charge le PDF...",
-    "rendering": "Ça rend les pages...",
+    "loading": "Ça charge le PDF, patience !",
+    "rendering": "Ça rend les pages, ça va pas être long !",
     "page": "Page",
     "open": "Ouvrir",
     "download": "Télécharger",
     "reset": "Remettre à zéro",
     "zoomIn": "Zoom +",
     "zoomOut": "Zoom -",
-    "failed": "Ça a pas marché pour charger le PDF",
+    "failed": "Ça a pas marché pour charger le PDF, dommage !",
     "authenticationRequired": "Faut que tu te connectes pour voir ce PDF-là, mon ami !",
-    "retry": "Essayer encore"
+    "retry": "Essayer encore une fois"
   },
   "lists": {
     "title": "Listes",
-    "loading": "Ça charge les listes...",
-    "noLists": "Y'a pas de listes icitte",
+    "loading": "Ça charge les listes, patience mon chum !",
+    "noLists": "Y'a pas de listes icitte, c'est vide comme un frigidaire d'étudiant !",
     "columns": {
       "name": "Nom",
       "description": "Description",
@@ -170,7 +170,7 @@
     }
   },
   "errors": {
-    "general": "Ayoye ! Y'a eu un bug quelque part...",
+    "general": "Ayoye ! Y'a eu un bug quelque part, ça arrive !",
     "network": "Problème de réseau, ça marche pas pantoute !",
     "auth": "T'es pas connecté comme du monde, mon ami !",
     "timeout": "Ça prend trop de temps, faut que ça aille plus vite !",
@@ -193,10 +193,10 @@
     "close": "Fermer ça"
   },
   "messages": {
-    "success": "Ça a marché comme un charme !",
+    "success": "Ça a marché comme un charme, mon chum !",
     "warning": "Attention là, fais donc attention !",
     "info": "Just pour que tu le saches...",
-    "error": "Ça a pas marché pantoute !",
+    "error": "Ça a pas marché pantoute, dommage !",
     "loading": "Patiente un peu, ça s'en vient...",
     "noData": "Y'a rien à voir icitte, mon vieux !",
     "emptyList": "La liste est vide comme un frigidaire d'étudiant !",
