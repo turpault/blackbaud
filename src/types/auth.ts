@@ -4,6 +4,8 @@ export interface OAuthSessionResponse {
   authenticated: boolean;
   provider: string;
   timestamp: string;
+  subscriptionKey?: string;
+  subscriptionKeyHeader?: string;
   session?: {
     accessToken: string;
     tokenType?: string;
@@ -24,6 +26,7 @@ export interface SessionInfo {
   expiresAt?: string;
   accessToken?: string;
   subscriptionKey?: string;
+  subscriptionKeyHeader?: string;
   user?: any;
   // Additional OAuth session fields
   isExpired?: boolean;

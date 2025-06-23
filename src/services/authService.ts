@@ -128,6 +128,8 @@ class AuthService {
         authenticated: oauthResponse.authenticated,
         provider: oauthResponse.provider,
         timestamp: oauthResponse.timestamp,
+        subscriptionKey: oauthResponse.subscriptionKey,
+        subscriptionKeyHeader: oauthResponse.subscriptionKeyHeader,
         // Extract session data if available
         ...(oauthResponse.session && {
           accessToken: oauthResponse.session.accessToken,

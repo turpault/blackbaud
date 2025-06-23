@@ -7,6 +7,8 @@ const exampleOAuthResponse: OAuthSessionResponse = {
   authenticated: true,
   provider: "blackbaud",
   timestamp: "2024-01-15T10:30:00Z",
+  subscriptionKey: "your-subscription-key-here",
+  subscriptionKeyHeader: "bb-api-subscription-key",
   session: {
     accessToken: "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9...",
     tokenType: "Bearer",
@@ -56,6 +58,8 @@ function handleOAuthSession(oauthResponse: OAuthSessionResponse) {
   console.log('Provider:', oauthResponse.provider);
   console.log('Authenticated:', oauthResponse.authenticated);
   console.log('Timestamp:', oauthResponse.timestamp);
+  console.log('Subscription Key:', oauthResponse.subscriptionKey ? 'Present' : 'Missing');
+  console.log('Subscription Key Header:', oauthResponse.subscriptionKeyHeader);
   
   if (oauthResponse.session) {
     const session = oauthResponse.session;
@@ -82,6 +86,8 @@ function convertOAuthToSessionInfo(oauthResponse: OAuthSessionResponse): Session
     authenticated: oauthResponse.authenticated,
     provider: oauthResponse.provider,
     timestamp: oauthResponse.timestamp,
+    subscriptionKey: oauthResponse.subscriptionKey,
+    subscriptionKeyHeader: oauthResponse.subscriptionKeyHeader,
     ...(oauthResponse.session && {
       accessToken: oauthResponse.session.accessToken,
       tokenType: oauthResponse.session.tokenType,
