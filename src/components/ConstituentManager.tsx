@@ -1,5 +1,7 @@
+import authService from "../services/authService";
+import { ConstituentInfo } from "../types/auth";
 import React, { useState, useEffect } from "react";
-import authService, { ConstituentInfo } from "../services/authService";
+import { useTranslation } from "react-i18next";
 
 interface ConstituentManagerProps {
   constituentId?: string;
@@ -14,10 +16,10 @@ const ConstituentManager: React.FC<ConstituentManagerProps> = ({ constituentId }
 
   useEffect(() => {
     updateCacheStats();
-    
+
     // Set up periodic updates to show real-time pending promises
     const interval = setInterval(updateCacheStats, 500);
-    
+
     return () => clearInterval(interval);
   }, []);
 
@@ -74,7 +76,7 @@ const ConstituentManager: React.FC<ConstituentManagerProps> = ({ constituentId }
       // Make 5 simultaneous requests for the same constituent
       // Only one API call should be made due to promise memoization
       console.log("Starting 5 simultaneous requests for the same constituent...");
-      
+
       // Use centralized query handler for promise memoization test
       const results = await authService.executeQuery(
         async () => {
@@ -87,7 +89,7 @@ const ConstituentManager: React.FC<ConstituentManagerProps> = ({ constituentId }
         'testing promise memoization',
         (errorMsg) => setError(errorMsg)
       );
-      
+
       console.log("All requests completed:", results);
       setConstituent(results[0]); // All should be the same
       updateCacheStats();
@@ -215,7 +217,7 @@ const ConstituentManager: React.FC<ConstituentManagerProps> = ({ constituentId }
               Clear This Cache
             </button>
           </div>
-          
+
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "15px" }}>
             <div>
               <h5>Basic Information</h5>

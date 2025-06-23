@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import authService from "../services/authService";
-import type { ConstituentInfo } from "../services/authService";
+import type { ConstituentInfo } from "../types/auth";
 import { constituentQueue, attachmentQueue } from "../utils/concurrentQueue";
 import QueueManager from "./QueueManager";
 import LazyLoadingStats from "./LazyLoadingStats";

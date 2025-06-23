@@ -1,7 +1,8 @@
 import React, { useEffect, useState, Suspense } from "react";
 import { Routes, Route, Navigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import authService, { SessionInfo } from "./services/authService";
+import authService from "./services/authService";
+import { SessionInfo } from "./types/auth";
 import LanguageSelector from "./components/LanguageSelector";
 
 // Lazy load all page components
@@ -144,9 +145,9 @@ const App: React.FC = () => {
               )
             }
           />
-          <Route 
-            path="/logout" 
-            element={<Logout />} 
+          <Route
+            path="/logout"
+            element={<Logout />}
           />
           {/* OAuth callback is handled by the proxy server */}
           <Route path="*" element={<Navigate to="/" replace />} />

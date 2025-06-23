@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import authService from '../services/authService';
-import type { ConstituentInfo as ConstituentInfoType } from '../services/authService';
+import type { ConstituentInfo as ConstituentInfoType } from '../types/auth';
 
 interface ConstituentInfoProps {
   constituentId: string | undefined;

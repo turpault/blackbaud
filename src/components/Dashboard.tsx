@@ -1,7 +1,9 @@
 import React, { useState, useEffect, Suspense } from "react";
 import { Link, useParams, useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import authService, { SessionInfo } from "../services/authService";
+import authService from "../services/authService";
+import { SessionInfo } from "../types/auth";
+import LanguageSelector from "./LanguageSelector";
 
 // Lazy load the GiftList component since it's large
 const GiftList = React.lazy(() => import("./GiftList"));
