@@ -100,6 +100,20 @@
     "loadMore": "Load More",
     "loadingMore": "Loading more...",
     "scrollForMore": "Scroll for more gifts...",
+    "retry": "Retry",
+    "completeView": "Complete View",
+    "completeViewTitle": "View all gifts in complete view",
+    "printReady": "Ready for printing",
+    "preparingForPrint": "Preparing for printing...",
+    "print": "Print",
+    "cardSize": "Card Size",
+    "cardSizes": {
+      "small": "Small (300px)",
+      "medium": "Medium (400px)",
+      "large": "Large (500px)",
+      "extraLarge": "Extra Large (600px)",
+      "huge": "Huge (700px)"
+    },
     "filters": {
       "title": "Filters",
       "clear": "Clear Filters",
@@ -138,13 +152,47 @@
       "download": "Download",
       "open": "Open",
       "rendering": "Rendering...",
-      "failed": "Failed to render"
+      "failed": "Failed to render",
+      "completeView": "Complete View",
+      "completeViewTitle": "View all attachments in complete view",
+      "noAttachmentsAvailable": "No attachments available for this gift.",
+      "pdfDocuments": "PDF Documents",
+      "images": "Images",
+      "otherFiles": "Other Files",
+      "unnamedPdf": "Unnamed PDF",
+      "unnamedImage": "Unnamed Image",
+      "unnamedFile": "Unnamed File",
+      "downloadPdf": "Download PDF",
+      "downloadImage": "Download Image",
+      "downloadFile": "Download File",
+      "size": "Size",
+      "completeAttachmentsView": "Complete Attachments View",
+      "totalAttachments": "Total Attachments"
     },
     "constituent": {
       "loading": "Loading constituent...",
       "notFound": "Constituent not found"
     },
-    "showing": "Showing {{shown}} of {{total}} gifts"
+    "showing": "Showing {{shown}} of {{total}} gifts",
+    "details": {
+      "additionalDetails": "Additional Details",
+      "acknowledgementStatus": "Acknowledgement Status",
+      "acknowledgementDate": "Acknowledgement Date",
+      "receiptAmount": "Receipt Amount",
+      "receiptDate": "Receipt Date",
+      "batchNumber": "Batch #",
+      "reference": "Reference",
+      "giftAidStatus": "Gift Aid Status",
+      "dateAdded": "Date Added",
+      "dateModified": "Date Modified",
+      "paymentsAndSoftCredits": "Payments & Soft Credits",
+      "payments": "Payments",
+      "noPaymentDetails": "No payment details available",
+      "softCredits": "Soft Credits",
+      "method": "Method",
+      "checkNumber": "Check #",
+      "checkDate": "Date"
+    }
   },
   "pdfViewer": {
     "loading": "Loading PDF...",

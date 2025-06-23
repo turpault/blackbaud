@@ -134,6 +134,10 @@ const GiftList: React.FC = () => {
   // Zoom level for card sizing
   const [zoomLevel, setZoomLevel] = useState<number>(500); // Default 500px width
 
+  // Complete view state
+  const [isCompleteView, setIsCompleteView] = useState<boolean>(false);
+  const [isPrintReady, setIsPrintReady] = useState<boolean>(false);
+
   // Refs for tracking loading states
   const loadingAttachmentsRef = useRef<Set<string>>(new Set());
   const loadingTasksRef = useRef<Set<string>>(new Set()); // Track queued tasks to prevent duplicates
@@ -578,6 +582,23 @@ const GiftList: React.FC = () => {
     };
   }, [loading]);
 
+  const handleCompleteView = useCallback((): void => {
+    if (gifts.length === 0) return;
+
+    // Toggle complete view mode
+    const newCompleteView = !isCompleteView;
+    setIsCompleteView(newCompleteView);
+
+    // Set print ready status after a short delay to allow content to load
+    if (newCompleteView) {
+      setTimeout(() => {
+        setIsPrintReady(true);
+      }, 1000);
+    } else {
+      setIsPrintReady(false);
+    }
+  }, [gifts.length, isCompleteView]);
+
   if (loading) {
     return (
       <div style={{
@@ -756,7 +777,69 @@ const GiftList: React.FC = () => {
         minHeight: "60px"
       }}>
         <h2>🎁 {t('giftList.title')}</h2>
+        {gifts.length > 0 && (
+          <button
+            onClick={handleCompleteView}
+            style={{
+              padding: "8px 16px",
+              backgroundColor: "#17a2b8",
+              color: "white",
+              border: "none",
+              borderRadius: "6px",
+              cursor: "pointer",
+              fontSize: "14px",
+              fontWeight: "bold",
+              display: "flex",
+              alignItems: "center",
+              gap: "8px"
+            }}
+            title={t('giftList.completeViewTitle')}
+          >
+            👁️ {t('giftList.completeView')}
+          </button>
+        )}
       </div>
+
+      {/* Print Ready Status */}
+      {isCompleteView && (
+        <div style={{
+          marginBottom: "20px",
+          padding: "12px 16px",
+          backgroundColor: isPrintReady ? "#d4edda" : "#fff3cd",
+          border: `1px solid ${isPrintReady ? "#c3e6cb" : "#ffeaa7"}`,
+          borderRadius: "6px",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          color: isPrintReady ? "#155724" : "#856404"
+        }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+            <span style={{ fontSize: "16px" }}>
+              {isPrintReady ? "✅" : "⏳"}
+            </span>
+            <span style={{ fontWeight: "bold" }}>
+              {isPrintReady ? t('giftList.printReady') : t('giftList.preparingForPrint')}
+            </span>
+          </div>
+          {isPrintReady && (
+            <button
+              onClick={() => window.print()}
+              style={{
+                padding: "6px 12px",
+                backgroundColor: "#007bff",
+                color: "white",
+                border: "none",
+                borderRadius: "4px",
+                cursor: "pointer",
+                fontSize: "12px",
+                fontWeight: "bold"
+              }}
+            >
+              🖨️ {t('giftList.print')}
+            </button>
+          )}
+        </div>
+      )}
 
       {/* Filter and Sort Controls */}
       <div style={{
@@ -897,7 +980,7 @@ const GiftList: React.FC = () => {
         </div>
 
         <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-          <label style={{ fontWeight: "bold", fontSize: "14px" }}>Card Size:</label>
+          <label style={{ fontWeight: "bold", fontSize: "14px" }}>{t('giftList.cardSize')}:</label>
           <select
             value={zoomLevel}
             onChange={(e) => setZoomLevel(Number(e.target.value))}
@@ -909,11 +992,11 @@ const GiftList: React.FC = () => {
               minWidth: "120px"
             }}
           >
-            <option value={300}>Small (300px)</option>
-            <option value={400}>Medium (400px)</option>
-            <option value={500}>Large (500px)</option>
-            <option value={600}>Extra Large (600px)</option>
-            <option value={700}>Huge (700px)</option>
+            <option value={300}>{t('giftList.cardSizes.small')}</option>
+            <option value={400}>{t('giftList.cardSizes.medium')}</option>
+            <option value={500}>{t('giftList.cardSizes.large')}</option>
+            <option value={600}>{t('giftList.cardSizes.extraLarge')}</option>
+            <option value={700}>{t('giftList.cardSizes.huge')}</option>
           </select>
         </div>
       </div>
@@ -922,7 +1005,181 @@ const GiftList: React.FC = () => {
         <div style={{ textAlign: "center", padding: "40px", color: "#666" }}>
           <p>{t('giftList.noGifts')}</p>
         </div>
+      ) : isCompleteView ? (
+        // Complete View Layout
+        <div style={{
+          backgroundColor: "white",
+          borderRadius: "8px",
+          padding: "20px",
+          boxShadow: "0 2px 10px rgba(0,0,0,0.1)"
+        }}>
+          {/* Statistics Section */}
+          <div style={{
+            display: "flex",
+            justifyContent: "space-around",
+            marginBottom: "30px",
+            padding: "15px",
+            background: "#f8f9fa",
+            borderRadius: "8px"
+          }}>
+            <div style={{ textAlign: "center" }}>
+              <div style={{ fontSize: "24px", fontWeight: "bold", color: "#007bff" }}>
+                {gifts.length}
+              </div>
+              <div style={{ fontSize: "12px", color: "#6c757d", marginTop: "5px" }}>
+                {t('giftList.title')}
+              </div>
+            </div>
+            <div style={{ textAlign: "center" }}>
+              <div style={{ fontSize: "24px", fontWeight: "bold", color: "#007bff" }}>
+                {gifts.filter(g => g.attachments && g.attachments.length > 0).length}
+              </div>
+              <div style={{ fontSize: "12px", color: "#6c757d", marginTop: "5px" }}>
+                {t('giftList.attachments.title')}
+              </div>
+            </div>
+            <div style={{ textAlign: "center" }}>
+              <div style={{ fontSize: "24px", fontWeight: "bold", color: "#007bff" }}>
+                {gifts.reduce((sum, g) => sum + (g.amount?.value || 0), 0).toLocaleString('en-US', { style: 'currency', currency: 'USD' })}
+              </div>
+              <div style={{ fontSize: "12px", color: "#6c757d", marginTop: "5px" }}>
+                {t('giftList.columns.amount')}
+              </div>
+            </div>
+          </div>
+
+          {/* Filters Info */}
+          {(immediateFilters.type || immediateFilters.status || immediateFilters.subtype || immediateFilters.list_id) && (
+            <div style={{
+              background: "#e3f2fd",
+              padding: "10px",
+              borderRadius: "6px",
+              marginBottom: "20px",
+              fontSize: "13px",
+              color: "#1976d2"
+            }}>
+              <strong>{t('giftList.filters.title')}:</strong>
+              {immediateFilters.type ? ` ${t('giftList.filters.type')}: ${immediateFilters.type}` : ''}
+              {immediateFilters.status ? ` | ${t('giftList.filters.status')}: ${immediateFilters.status}` : ''}
+              {immediateFilters.subtype ? ` | ${t('giftList.filters.subtype')}: ${immediateFilters.subtype}` : ''}
+              {immediateFilters.list_id ? ` | ${t('giftList.filters.list')}: ${immediateFilters.list_id}` : ''}
+            </div>
+          )}
+
+          {/* Complete View Grid */}
+          <div style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(auto-fit, minmax(400px, 1fr))",
+            gap: "20px"
+          }}>
+            {sortedGifts.map(gift => (
+              <div key={gift.id} style={{
+                border: "1px solid #e9ecef",
+                borderRadius: "8px",
+                padding: "20px",
+                background: "#f8f9fa",
+                transition: "transform 0.2s"
+              }}>
+                <div style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "flex-start",
+                  marginBottom: "15px",
+                  paddingBottom: "10px",
+                  borderBottom: "1px solid #dee2e6"
+                }}>
+                  <div>
+                    <div style={{ fontFamily: "monospace", fontSize: "12px", color: "#6c757d" }}>
+                      {t('giftList.columns.id')}: {gift.id}
+                    </div>
+                    <div style={{ fontWeight: "bold", color: "#2c3e50", marginTop: "5px" }}>
+                      {cachedConstituents[gift.constituent_id || '']?.name || t('giftList.constituent.loading')}
+                    </div>
+                  </div>
+                  <div style={{ fontSize: "18px", fontWeight: "bold", color: "#28a745" }}>
+                    {formatCurrency(gift.amount)}
+                  </div>
+                </div>
+
+                <div style={{
+                  display: "grid",
+                  gridTemplateColumns: "1fr 1fr",
+                  gap: "10px",
+                  marginBottom: "15px"
+                }}>
+                  <div style={{ fontSize: "13px" }}>
+                    <span style={{ fontWeight: "bold", color: "#495057" }}>{t('giftList.columns.date')}:</span>
+                    <span style={{ color: "#6c757d" }}> {formatDate(gift.date)}</span>
+                  </div>
+                  <div style={{ fontSize: "13px" }}>
+                    <span style={{ fontWeight: "bold", color: "#495057" }}>{t('giftList.columns.type')}:</span>
+                    <span style={{ color: "#6c757d" }}> {gift.type || 'N/A'}</span>
+                  </div>
+                  <div style={{ fontSize: "13px" }}>
+                    <span style={{ fontWeight: "bold", color: "#495057" }}>{t('giftList.columns.status')}:</span>
+                    <span style={{ color: "#6c757d" }}> {gift.gift_status || 'N/A'}</span>
+                  </div>
+                  <div style={{ fontSize: "13px" }}>
+                    <span style={{ fontWeight: "bold", color: "#495057" }}>{t('giftList.columns.subtype')}:</span>
+                    <span style={{ color: "#6c757d" }}> {gift.subtype || 'N/A'}</span>
+                  </div>
+                  <div style={{ fontSize: "13px" }}>
+                    <span style={{ fontWeight: "bold", color: "#495057" }}>{t('giftList.columns.designation')}:</span>
+                    <span style={{ color: "#6c757d" }}> {gift.designation || 'N/A'}</span>
+                  </div>
+                  <div style={{ fontSize: "13px" }}>
+                    <span style={{ fontWeight: "bold", color: "#495057" }}>{t('giftList.columns.reference')}:</span>
+                    <span style={{ color: "#6c757d" }}> {gift.reference || 'N/A'}</span>
+                  </div>
+                </div>
+
+                <div style={{
+                  marginTop: "15px",
+                  paddingTop: "15px",
+                  borderTop: "1px solid #dee2e6"
+                }}>
+                  <div style={{
+                    fontSize: "14px",
+                    fontWeight: "bold",
+                    color: "#495057",
+                    marginBottom: "10px"
+                  }}>
+                    📎 {t('giftList.attachments.title')} ({gift.attachments?.length || 0})
+                  </div>
+                  {gift.attachments && gift.attachments.length > 0 ? (
+                    <div style={{
+                      display: "flex",
+                      flexWrap: "wrap",
+                      gap: "8px"
+                    }}>
+                      {gift.attachments.map((att, index) => (
+                        <div key={index} style={{
+                          padding: "4px 8px",
+                          background: "#e9ecef",
+                          borderRadius: "4px",
+                          fontSize: "11px",
+                          color: "#495057"
+                        }}>
+                          {att.name || att.file_name || t('giftList.attachments.unnamedFile')}
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div style={{
+                      fontStyle: "italic",
+                      color: "#6c757d",
+                      fontSize: "12px"
+                    }}>
+                      {t('giftList.attachments.noAttachments')}
+                    </div>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
       ) : (
+        // Normal Card View
         <>
           {/* Cards Grid */}
           <div className="gifts-grid" style={{
@@ -1070,6 +1327,38 @@ const GiftList: React.FC = () => {
           overflow: hidden;
           text-overflow: ellipsis;
           white-space: nowrap;
+        }
+
+        /* Print styles for complete view */
+        @media print {
+          body {
+            background: white !important;
+            margin: 0 !important;
+            padding: 0 !important;
+          }
+          
+          .gift-card-wrapper {
+            break-inside: avoid;
+            page-break-inside: avoid;
+          }
+          
+          .gift-card {
+            break-inside: avoid;
+            page-break-inside: avoid;
+            box-shadow: none !important;
+            border: 1px solid #000 !important;
+          }
+          
+          /* Hide non-essential elements when printing */
+          button, select, input {
+            display: none !important;
+          }
+          
+          /* Ensure text is readable */
+          * {
+            color: black !important;
+            background: white !important;
+          }
         }
       `}</style>
     </div>

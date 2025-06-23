@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import authService from '../services/authService';
-import PdfViewer from './PdfViewer';
+import { getProxiedUrl } from '../utils/corsProxy';
 
 interface GiftAttachment {
   id?: string;
@@ -32,6 +33,7 @@ const AttachmentsSection: React.FC<AttachmentsSectionProps> = React.memo(({
   onHandleImageError,
   zoomLevel = 500
 }) => {
+  const { t } = useTranslation();
   const [attachments, setAttachments] = useState<GiftAttachment[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [imageErrors, setImageErrors] = useState<Set<string>>(new Set());
@@ -77,6 +79,21 @@ const AttachmentsSection: React.FC<AttachmentsSectionProps> = React.memo(({
     return fileName.toLowerCase().endsWith('.pdf') || contentType.toLowerCase().includes('pdf');
   };
 
+  const getPdfImageUrl = (attachment: GiftAttachment): string => {
+    if (!attachment.url) return '';
+
+    // Calculate the width for the image (double the attachment window width for better quality)
+    const attachmentWidth = Math.max(200, Math.min(600, zoomLevel * 0.8));
+    const imageWidth = Math.round(attachmentWidth * 2);
+
+    // Add convert and width parameters to the original URL
+    const separator = attachment.url.includes('?') ? '&' : '?';
+    const urlWithParams = `${attachment.url}${separator}convert=jpeg&width=${imageWidth}`;
+
+    // Use the CORS proxy to handle the conversion
+    return getProxiedUrl(urlWithParams);
+  };
+
   const formatFileSize = (bytes: number): string => {
     if (bytes === 0) return '0 Bytes';
     const k = 1024;
@@ -102,6 +119,74 @@ const AttachmentsSection: React.FC<AttachmentsSectionProps> = React.memo(({
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+  };
+
+  const handlePrint = async (attachment: GiftAttachment): Promise<void> => {
+    if (!attachment.url) {
+      console.error('No URL available for printing');
+      return;
+    }
+
+    try {
+      // Create a print window with all pages
+      const printWindow = window.open('', '_blank');
+      if (!printWindow) {
+        alert('Please allow popups to print this document');
+        return;
+      }
+
+      // Get all pages by adding page parameter and use CORS proxy
+      const separator = attachment.url.includes('?') ? '&' : '?';
+      const printUrlWithParams = `${attachment.url}${separator}convert=jpeg&width=800&page=all`;
+      const printUrl = getProxiedUrl(printUrlWithParams);
+
+      printWindow.document.write(`
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <title>Print: ${attachment.name || attachment.file_name || 'PDF Document'}</title>
+          <style>
+            body { 
+              margin: 0; 
+              padding: 20px; 
+              font-family: Arial, sans-serif; 
+            }
+            .page { 
+              margin-bottom: 20px; 
+              text-align: center; 
+            }
+            img { 
+              max-width: 100%; 
+              height: auto; 
+              border: 1px solid #ccc; 
+            }
+            .header {
+              text-align: center;
+              margin-bottom: 20px;
+              font-size: 18px;
+              font-weight: bold;
+            }
+            @media print {
+              body { padding: 0; }
+              .page { margin-bottom: 0; page-break-after: always; }
+              .page:last-child { page-break-after: avoid; }
+            }
+          </style>
+        </head>
+        <body>
+          <div class="header">${attachment.name || attachment.file_name || 'PDF Document'}</div>
+          <div class="page">
+            <img src="${printUrl}" alt="PDF Page" onload="window.print()" />
+          </div>
+        </body>
+        </html>
+      `);
+
+      printWindow.document.close();
+    } catch (error) {
+      console.error('Error printing PDF:', error);
+      alert('Error printing document. Please try downloading and printing manually.');
+    }
   };
 
   if (attachments.length === 0 && !isLoading) {
@@ -277,7 +362,7 @@ const AttachmentsSection: React.FC<AttachmentsSectionProps> = React.memo(({
         alignItems: "center",
         gap: "6px"
       }}>
-        📎 Attachments
+        📎 {t('giftList.attachments.title')} ({attachments.length})
         {isLoading && (
           <div
             style={{
@@ -355,11 +440,18 @@ const AttachmentsSection: React.FC<AttachmentsSectionProps> = React.memo(({
 
               {isPdfFile(attachment) && (
                 <div style={{ marginBottom: "8px" }}>
-                  <PdfViewer
-                    url={attachment.url || ''}
-                    name={attachment.name || attachment.file_name || "PDF Document"}
-                    height={Math.max(200, Math.min(600, zoomLevel * 0.8))}
-                    width="100%"
+                  <img
+                    src={getPdfImageUrl(attachment)}
+                    alt={`PDF Preview: ${attachment.name || attachment.file_name || "PDF Document"}`}
+                    style={{
+                      width: "100%",
+                      height: Math.max(200, Math.min(600, zoomLevel * 0.8)),
+                      objectFit: "contain",
+                      borderRadius: "4px",
+                      border: "1px solid #e9ecef",
+                      backgroundColor: "#f8f9fa"
+                    }}
+                    onError={() => handleImageError(attachment.id || '')}
                   />
                 </div>
               )}
@@ -372,18 +464,18 @@ const AttachmentsSection: React.FC<AttachmentsSectionProps> = React.memo(({
                 }}
                 style={{
                   width: "100%",
-                  padding: "8px 12px",
+                  padding: "6px 10px",
                   backgroundColor: "#007bff",
                   color: "white",
                   border: "none",
                   borderRadius: "4px",
                   cursor: "pointer",
-                  fontSize: "12px",
+                  fontSize: "11px",
                   fontWeight: "bold",
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
-                  gap: "6px"
+                  gap: "4px"
                 }}
                 title={`Download ${attachment.name || attachment.file_name || 'attachment'}`}
               >

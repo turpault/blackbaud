@@ -100,6 +100,20 @@
     "loadMore": "Charger plus",
     "loadingMore": "Chargement en cours...",
     "scrollForMore": "Faites défiler pour plus de dons...",
+    "retry": "Réessayer",
+    "completeView": "Vue complète",
+    "completeViewTitle": "Voir tous les dons en vue complète",
+    "printReady": "Prêt pour l'impression",
+    "preparingForPrint": "Préparation pour l'impression...",
+    "print": "Imprimer",
+    "cardSize": "Taille de carte",
+    "cardSizes": {
+      "small": "Petite (300px)",
+      "medium": "Moyenne (400px)",
+      "large": "Grande (500px)",
+      "extraLarge": "Très grande (600px)",
+      "huge": "Énorme (700px)"
+    },
     "filters": {
       "title": "Filtres",
       "clear": "Effacer les filtres",
@@ -138,11 +152,46 @@
       "download": "Télécharger",
       "open": "Ouvrir",
       "rendering": "Rendu en cours...",
-      "failed": "Échec du rendu"
+      "failed": "Échec du rendu",
+      "completeView": "Vue complète",
+      "completeViewTitle": "Voir toutes les pièces jointes en vue complète",
+      "noAttachmentsAvailable": "Aucune pièce jointe disponible pour ce don.",
+      "pdfDocuments": "Documents PDF",
+      "images": "Images",
+      "otherFiles": "Autres fichiers",
+      "unnamedPdf": "PDF sans nom",
+      "unnamedImage": "Image sans nom",
+      "unnamedFile": "Fichier sans nom",
+      "downloadPdf": "Télécharger PDF",
+      "downloadImage": "Télécharger image",
+      "downloadFile": "Télécharger fichier",
+      "size": "Taille",
+      "completeAttachmentsView": "Vue complète des pièces jointes",
+      "totalAttachments": "Total des pièces jointes"
     },
     "constituent": {
       "loading": "Chargement du constituant...",
       "notFound": "Constituant non trouvé"
+    },
+    "showing": "Affichage de {{shown}} sur {{total}} dons",
+    "details": {
+      "additionalDetails": "Détails supplémentaires",
+      "acknowledgementStatus": "Statut d'accusé de réception",
+      "acknowledgementDate": "Date d'accusé de réception",
+      "receiptAmount": "Montant du reçu",
+      "receiptDate": "Date du reçu",
+      "batchNumber": "Numéro de lot",
+      "reference": "Référence",
+      "giftAidStatus": "Statut d'aide aux dons",
+      "dateAdded": "Date d'ajout",
+      "dateModified": "Date de modification",
+      "paymentsAndSoftCredits": "Paiements et crédits souples",
+      "payments": "Paiements",
+      "noPaymentDetails": "Aucun détail de paiement disponible",
+      "softCredits": "Crédits souples",
+      "method": "Méthode",
+      "checkNumber": "Numéro de chèque",
+      "checkDate": "Date"
     }
   },
   "pdfViewer": {
@@ -167,6 +216,5 @@
       "description": "Description",
       "constituentCount": "Nombre de constituants"
     }
-  },
-  "showing": "Affichage de {{shown}} sur {{total}} dons"
+  }
 } 

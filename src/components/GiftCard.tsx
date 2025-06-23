@@ -1,4 +1,5 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import ConstituentInfo from './ConstituentInfo';
 import AttachmentsSection from './AttachmentsSection';
 
@@ -62,6 +63,7 @@ const GiftCard: React.FC<GiftCardProps> = React.memo(({
   formatDate,
   zoomLevel = 500
 }) => {
+  const { t } = useTranslation();
   const isExpanded = expandedRows.has(gift.id);
 
   return (
@@ -161,24 +163,24 @@ const GiftCard: React.FC<GiftCardProps> = React.memo(({
         }}>
           <div>
             <p style={{ margin: "0 0 8px", fontSize: "14px", color: "#666" }}>
-              <strong>Amount:</strong> {formatCurrency(gift.amount)}
+              <strong>{t('giftList.columns.amount')}:</strong> {formatCurrency(gift.amount)}
             </p>
             <p style={{ margin: "0 0 8px", fontSize: "14px", color: "#666" }}>
-              <strong>Date:</strong> {formatDate(gift.date)}
+              <strong>{t('giftList.columns.date')}:</strong> {formatDate(gift.date)}
             </p>
             <p style={{ margin: "0 0 8px", fontSize: "14px", color: "#666" }}>
-              <strong>Type:</strong> {gift.type || "N/A"}
+              <strong>{t('giftList.columns.type')}:</strong> {gift.type || "N/A"}
             </p>
           </div>
           <div>
             <p style={{ margin: "0 0 8px", fontSize: "14px", color: "#666" }}>
-              <strong>Status:</strong> {gift.gift_status || "N/A"}
+              <strong>{t('giftList.columns.status')}:</strong> {gift.gift_status || "N/A"}
             </p>
             <p style={{ margin: "0 0 8px", fontSize: "14px", color: "#666" }}>
-              <strong>Subtype:</strong> {gift.subtype || "N/A"}
+              <strong>{t('giftList.columns.subtype')}:</strong> {gift.subtype || "N/A"}
             </p>
             <p style={{ margin: "0 0 8px", fontSize: "14px", color: "#666" }}>
-              <strong>Designation:</strong> {gift.designation || "N/A"}
+              <strong>{t('giftList.columns.designation')}:</strong> {gift.designation || "N/A"}
             </p>
           </div>
         </div>
@@ -210,55 +212,55 @@ const GiftCard: React.FC<GiftCardProps> = React.memo(({
           }}>
             <div>
               <h4 style={{ margin: "0 0 12px", fontSize: "16px", color: "#495057" }}>
-                Additional Details
+                {t('giftList.details.additionalDetails')}
               </h4>
               <div style={{ fontSize: "13px", lineHeight: "1.5" }}>
                 <p style={{ margin: "6px 0" }}>
-                  <strong>Acknowledgement Status:</strong>{" "}
+                  <strong>{t('giftList.details.acknowledgementStatus')}:</strong>{" "}
                   {gift.acknowledgement_status || "N/A"}
                 </p>
                 <p style={{ margin: "6px 0" }}>
-                  <strong>Acknowledgement Date:</strong>{" "}
+                  <strong>{t('giftList.details.acknowledgementDate')}:</strong>{" "}
                   {formatDate(gift.acknowledgement_date)}
                 </p>
                 <p style={{ margin: "6px 0" }}>
-                  <strong>Receipt Amount:</strong>{" "}
+                  <strong>{t('giftList.details.receiptAmount')}:</strong>{" "}
                   {formatCurrency(gift.receipt_amount)}
                 </p>
                 <p style={{ margin: "6px 0" }}>
-                  <strong>Receipt Date:</strong>{" "}
+                  <strong>{t('giftList.details.receiptDate')}:</strong>{" "}
                   {formatDate(gift.receipt_date)}
                 </p>
                 <p style={{ margin: "6px 0" }}>
-                  <strong>Batch #:</strong>{" "}
+                  <strong>{t('giftList.details.batchNumber')}:</strong>{" "}
                   {gift.batch_number || "N/A"}
                 </p>
                 <p style={{ margin: "6px 0" }}>
-                  <strong>Reference:</strong>{" "}
+                  <strong>{t('giftList.details.reference')}:</strong>{" "}
                   {gift.reference || "N/A"}
                 </p>
                 <p style={{ margin: "6px 0" }}>
-                  <strong>Gift Aid Status:</strong>{" "}
+                  <strong>{t('giftList.details.giftAidStatus')}:</strong>{" "}
                   {gift.gift_aid_qualification_status || "N/A"}
                 </p>
                 <p style={{ margin: "6px 0" }}>
-                  <strong>Date Added:</strong>{" "}
+                  <strong>{t('giftList.details.dateAdded')}:</strong>{" "}
                   {formatDate(gift.date_added)}
                 </p>
                 <p style={{ margin: "6px 0" }}>
-                  <strong>Date Modified:</strong>{" "}
+                  <strong>{t('giftList.details.dateModified')}:</strong>{" "}
                   {formatDate(gift.date_modified)}
                 </p>
               </div>
             </div>
             <div>
               <h4 style={{ margin: "0 0 12px", fontSize: "16px", color: "#495057" }}>
-                Payments & Soft Credits
+                {t('giftList.details.paymentsAndSoftCredits')}
               </h4>
               <div style={{ fontSize: "13px", lineHeight: "1.5" }}>
                 {gift.payments && gift.payments.length > 0 ? (
                   <div>
-                    <strong>Payments:</strong>
+                    <strong>{t('giftList.details.payments')}:</strong>
                     {gift.payments.map((payment: GiftPayment, index: number) => (
                       <div
                         key={index}
@@ -271,19 +273,19 @@ const GiftCard: React.FC<GiftCardProps> = React.memo(({
                           border: "1px solid #e9ecef"
                         }}
                       >
-                        • Method: {payment.payment_method || "N/A"}
-                        <br />• Check #: {payment.check_number || "N/A"}
-                        <br />• Date: {formatDate(payment.check_date)}
+                        • {t('giftList.details.method')}: {payment.payment_method || "N/A"}
+                        <br />• {t('giftList.details.checkNumber')}: {payment.check_number || "N/A"}
+                        <br />• {t('giftList.details.checkDate')}: {formatDate(payment.check_date)}
                       </div>
                     ))}
                   </div>
                 ) : (
-                  <p style={{ margin: "6px 0" }}>No payment details available</p>
+                  <p style={{ margin: "6px 0" }}>{t('giftList.details.noPaymentDetails')}</p>
                 )}
 
                 {gift.soft_credits && gift.soft_credits.length > 0 && (
                   <div style={{ marginTop: "12px" }}>
-                    <strong>Soft Credits:</strong>
+                    <strong>{t('giftList.details.softCredits')}:</strong>
                     {gift.soft_credits.map((credit: SoftCredit, index: number) => (
                       <div
                         key={index}
