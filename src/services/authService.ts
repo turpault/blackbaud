@@ -1,66 +1,12 @@
 import axios, { AxiosRequestConfig, AxiosResponse } from 'axios';
 import { cache } from '../utils/cacheDecorator';
-
-export interface SessionInfo {
-  authenticated: boolean;
-  tokenType?: string;
-  scope?: string;
-  expiresAt?: string;
-  accessToken?: string;
-  subscriptionKey?: string;
-  user?: any;
-}
-
-export interface ApiRequestOptions {
-  method?: 'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH';
-  headers?: Record<string, string>;
-  data?: any;
-  params?: any;
-  retries?: boolean;
-}
-
-export interface ConstituentInfo {
-  id: string;
-  name?: string;
-  first?: string;
-  last?: string;
-  middle?: string;
-  former_name?: string;
-  preferred_name?: string;
-  suffix?: string;
-  title?: string;
-  lookup_id?: string;
-  email?: {
-    address: string;
-    type?: string;
-    primary?: boolean;
-  };
-  phone?: {
-    number: string;
-    type?: string;
-    primary?: boolean;
-  };
-  address?: {
-    address_lines?: string[];
-    city?: string;
-    state?: string;
-    postal_code?: string;
-    country?: string;
-    type?: string;
-    primary?: boolean;
-  };
-  birthdate?: {
-    d?: number;
-    m?: number;
-    y?: number;
-  };
-  gender?: string;
-  marital_status?: string;
-  deceased?: boolean;
-  date_added?: string;
-  date_modified?: string;
-  [key: string]: any;
-}
+import { 
+  OAuthSessionResponse, 
+  SessionInfo, 
+  ApiRequestOptions, 
+  ConstituentInfo,
+  SessionInfoFromOAuth 
+} from '../types/auth';
 
 class AuthService {
   private sessionInfo: SessionInfo | null = null;
@@ -170,12 +116,31 @@ class AuthService {
   // Fetch session info and bearer token from proxy server
   private async fetchSessionInfo(): Promise<SessionInfo> {
     try {
-      const response = await axios.get<SessionInfo>('/blackbaud/oauth/session', {
+      const response = await axios.get<OAuthSessionResponse>('/blackbaud/oauth/session', {
         timeout: 10000,
         withCredentials: true, // Include cookies for proxy authentication
       });
       
-      return response.data;
+      const oauthResponse = response.data;
+      
+      // Convert OAuthSessionResponse to SessionInfo for backward compatibility
+      const sessionInfo: SessionInfo = {
+        authenticated: oauthResponse.authenticated,
+        provider: oauthResponse.provider,
+        timestamp: oauthResponse.timestamp,
+        // Extract session data if available
+        ...(oauthResponse.session && {
+          accessToken: oauthResponse.session.accessToken,
+          tokenType: oauthResponse.session.tokenType,
+          scope: oauthResponse.session.scope,
+          expiresAt: oauthResponse.session.expiresAt,
+          isExpired: oauthResponse.session.isExpired,
+          expiresIn: oauthResponse.session.expiresIn,
+          sessionId: oauthResponse.session.sessionId,
+        })
+      };
+      
+      return sessionInfo;
     } catch (error: any) {
       console.error('Failed to check authentication status:', error);
       return { authenticated: false };
@@ -190,6 +155,61 @@ class AuthService {
   // Get cached session info
   getSessionInfo(): SessionInfo | null {
     return this.sessionInfo;
+  }
+
+  // Check if the current session token is expired
+  isTokenExpired(): boolean {
+    if (!this.sessionInfo?.accessToken) {
+      return true;
+    }
+    
+    // Check if we have explicit expiration info
+    if (this.sessionInfo.isExpired !== undefined) {
+      return this.sessionInfo.isExpired;
+    }
+    
+    // Check expiresAt timestamp
+    if (this.sessionInfo.expiresAt) {
+      const expiresAt = new Date(this.sessionInfo.expiresAt);
+      return expiresAt <= new Date();
+    }
+    
+    // Check expiresIn (seconds from now)
+    if (this.sessionInfo.expiresIn !== null && this.sessionInfo.expiresIn !== undefined) {
+      return this.sessionInfo.expiresIn <= 0;
+    }
+    
+    // If we can't determine expiration, assume it's valid
+    return false;
+  }
+
+  // Get session details for debugging/logging
+  getSessionDetails(): {
+    authenticated: boolean;
+    provider?: string;
+    tokenType?: string;
+    scope?: string;
+    expiresAt?: string;
+    isExpired?: boolean;
+    expiresIn?: number | null;
+    sessionId?: string;
+    timestamp?: string;
+  } {
+    if (!this.sessionInfo) {
+      return { authenticated: false };
+    }
+    
+    return {
+      authenticated: this.sessionInfo.authenticated,
+      provider: this.sessionInfo.provider,
+      tokenType: this.sessionInfo.tokenType,
+      scope: this.sessionInfo.scope,
+      expiresAt: this.sessionInfo.expiresAt,
+      isExpired: this.sessionInfo.isExpired,
+      expiresIn: this.sessionInfo.expiresIn,
+      sessionId: this.sessionInfo.sessionId,
+      timestamp: this.sessionInfo.timestamp,
+    };
   }
 
   // Initiate login by redirecting to the protected route
@@ -630,24 +650,6 @@ class AuthService {
     }
 
     return results;
-  }
-
-  // Helper method to get current session details (for debugging)
-  getSessionDetails(): any {
-    if (!this.sessionInfo) {
-      return { error: 'No session information available' };
-    }
-
-    return {
-      authenticated: this.sessionInfo.authenticated,
-      tokenType: this.sessionInfo.tokenType,
-      scope: this.sessionInfo.scope,
-      expiresAt: this.sessionInfo.expiresAt,
-      hasAccessToken: !!this.sessionInfo.accessToken,
-      hasSubscriptionKey: !!this.sessionInfo.subscriptionKey,
-      accessTokenLength: this.sessionInfo.accessToken?.length || 0,
-      subscriptionKeyLength: this.sessionInfo.subscriptionKey?.length || 0,
-    };
   }
 }
 
