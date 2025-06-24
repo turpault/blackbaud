@@ -272,6 +272,8 @@ const GiftList: React.FC = () => {
     });
   }, [loadGiftAttachments, giftAttachments]);
 
+  // Fetch gifts - only use for initial loads and filter changes
+  // For infinite scroll, use loadMoreGifts instead
   const fetchGifts = useCallback(async (reset: boolean = true): Promise<void> => {
     if (reset) {
       setLoading(true);
@@ -348,8 +350,10 @@ const GiftList: React.FC = () => {
 
   // Load gifts on mount and when filters change
   useEffect(() => {
+    // Only call fetchGifts on mount or when filters actually change
+    // Don't call it repeatedly due to fetchGifts dependency changes
     fetchGifts();
-  }, [fetchGifts]);
+  }, [filters.list_id]); // Only depend on the actual filter that matters
 
   // Memoized handlers to prevent unnecessary re-renders
   const memoizedToggleRowExpansion = useCallback((giftId: string): void => {
