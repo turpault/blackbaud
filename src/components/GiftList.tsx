@@ -596,10 +596,10 @@ const GiftList: React.FC = () => {
     if (displayedGifts.length < targetCount) {
       const timer = setTimeout(() => {
         setDisplayedGifts(prev => {
-          const newCount = Math.min(prev.length + 100, targetCount); // Increased batch size from 50 to 100
+          const newCount = Math.min(prev.length + 25, targetCount); // Smaller batches for smoother loading
           return gifts.slice(0, newCount);
         });
-      }, 50); // Reduced delay for faster loading
+      }, 150); // Longer delay to reduce flickering
 
       return () => clearTimeout(timer);
     } else if (displayedGifts.length === targetCount && !isLoadingComplete && !nextLink) {
@@ -607,6 +607,17 @@ const GiftList: React.FC = () => {
       setIsLoadingComplete(true);
     }
   }, [gifts, displayedGifts.length, isLoadingComplete, nextLink]);
+
+  // Debounced card count for smoother display
+  const [debouncedDisplayedCount, setDebouncedDisplayedCount] = useState<number>(0);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedDisplayedCount(displayedGifts.length);
+    }, 200); // Debounce the count updates
+
+    return () => clearTimeout(timer);
+  }, [displayedGifts.length]);
 
   if (loading) {
     return (
@@ -793,9 +804,9 @@ const GiftList: React.FC = () => {
           <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
             <span style={{ fontSize: "16px" }}>📊</span>
             <span style={{ fontWeight: "bold" }}>
-              Showing {displayedGifts.length.toLocaleString()} of {totalCount.toLocaleString()} cards
+              Showing {debouncedDisplayedCount.toLocaleString()} of {totalCount.toLocaleString()} cards
             </span>
-            {displayedGifts.length < totalCount && displayedGifts.length < MAX_CARDS_TO_DISPLAY && (
+            {debouncedDisplayedCount < totalCount && debouncedDisplayedCount < MAX_CARDS_TO_DISPLAY && (
               <span style={{ fontSize: "14px", color: "#1976d2" }}>
                 (Loading more...)
               </span>
@@ -1106,9 +1117,11 @@ const GiftList: React.FC = () => {
         }
         
         .gift-card-wrapper {
-          transition: all 0.2s ease-in-out;
+          transition: all 0.3s ease-in-out;
           transform: translateZ(0);
           will-change: transform;
+          opacity: 1;
+          animation: fadeIn 0.3s ease-in-out;
         }
         
         .gift-card-wrapper:hover {
@@ -1160,6 +1173,17 @@ const GiftList: React.FC = () => {
           white-space: nowrap;
         }
 
+        @keyframes fadeIn {
+          from {
+            opacity: 0;
+            transform: translateY(10px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
+        
         /* Print styles for complete view */
         @media print {
           body {
