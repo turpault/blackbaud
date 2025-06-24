@@ -20,11 +20,11 @@ export const isBlackbaudFileUrl = (url: string): boolean => {
 /**
  * Convert any external URL to use the Blackbaud dynamic proxy
  */
-export const getProxiedUrl = (originalUrl: string): string => {
+export const getProxiedUrl = (originalUrl: string, options: { convert?: string, width?: number } = {}): string => {
   if (isBlackbaudFileUrl(originalUrl)) {
     // Use the Blackbaud proxy route with dynamic target support
     const encodedUrl = btoa(originalUrl);
-    const proxiedUrl = `/blackbaud-proxy?url=${encodedUrl}`;
+    const proxiedUrl = `/blackbaud-proxy?url=${encodedUrl}&convert=${options.convert}&width=${options.width}`;
     console.log('Using dynamic target proxy for URL:', { originalUrl, proxiedUrl });
     return proxiedUrl;
   }

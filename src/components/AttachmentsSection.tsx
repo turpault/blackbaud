@@ -86,12 +86,9 @@ const AttachmentsSection: React.FC<AttachmentsSectionProps> = React.memo(({
     const attachmentWidth = Math.max(200, Math.min(600, zoomLevel * 0.8));
     const imageWidth = Math.round(attachmentWidth * 2);
 
-    // Add convert and width parameters to the original URL
-    const separator = attachment.url.includes('?') ? '&' : '?';
-    const urlWithParams = `${attachment.url}${separator}convert=jpeg&width=${imageWidth}`;
 
     // Use the CORS proxy to handle the conversion
-    return getProxiedUrl(urlWithParams);
+    return getProxiedUrl(attachment.url, { convert: 'jpeg', width: imageWidth });
   };
 
   const formatFileSize = (bytes: number): string => {
