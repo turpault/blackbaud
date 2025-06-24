@@ -323,13 +323,13 @@ const AttachmentsSection: React.FC<AttachmentsSectionProps> = React.memo(({
                     handleDownload(attachment);
                   }}
                   style={{
-                    padding: "4px 8px",
+                    padding: "3px 6px",
                     backgroundColor: "#007bff",
                     color: "white",
                     border: "none",
                     borderRadius: "3px",
                     cursor: "pointer",
-                    fontSize: "10px",
+                    fontSize: "9px",
                     fontWeight: "bold",
                     whiteSpace: "nowrap"
                   }}
@@ -424,6 +424,7 @@ const AttachmentsSection: React.FC<AttachmentsSectionProps> = React.memo(({
                   <img
                     src={attachment.url}
                     alt={attachment.name || "Attachment"}
+                    loading="lazy"
                     style={{
                       width: "100%",
                       height: "120px",
@@ -440,6 +441,7 @@ const AttachmentsSection: React.FC<AttachmentsSectionProps> = React.memo(({
                   <img
                     src={getPdfImageUrl(attachment)}
                     alt={`PDF Preview: ${attachment.name || attachment.file_name || "PDF Document"}`}
+                    loading="lazy"
                     style={{
                       width: "100%",
                       height: Math.max(200, Math.min(600, zoomLevel * 0.8)),
@@ -453,7 +455,7 @@ const AttachmentsSection: React.FC<AttachmentsSectionProps> = React.memo(({
                 </div>
               )}
 
-              {/* Download Button */}
+              {/* Download Button - Smaller */}
               <button
                 onClick={(e) => {
                   e.stopPropagation();
@@ -461,18 +463,18 @@ const AttachmentsSection: React.FC<AttachmentsSectionProps> = React.memo(({
                 }}
                 style={{
                   width: "100%",
-                  padding: "6px 10px",
+                  padding: "4px 8px",
                   backgroundColor: "#007bff",
                   color: "white",
                   border: "none",
-                  borderRadius: "4px",
+                  borderRadius: "3px",
                   cursor: "pointer",
-                  fontSize: "11px",
+                  fontSize: "10px",
                   fontWeight: "bold",
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
-                  gap: "4px"
+                  gap: "3px"
                 }}
                 title={`Download ${attachment.name || attachment.file_name || 'attachment'}`}
               >

@@ -138,6 +138,11 @@ const GiftList: React.FC = () => {
   const [isCompleteView, setIsCompleteView] = useState<boolean>(false);
   const [isPrintReady, setIsPrintReady] = useState<boolean>(false);
 
+  // Progressive loading state
+  const [displayedGifts, setDisplayedGifts] = useState<Gift[]>([]);
+  const [isLoadingComplete, setIsLoadingComplete] = useState<boolean>(false);
+  const MAX_CARDS_TO_DISPLAY = 2000;
+
   // Refs for tracking loading states
   const loadingAttachmentsRef = useRef<Set<string>>(new Set());
   const loadingTasksRef = useRef<Set<string>>(new Set()); // Track queued tasks to prevent duplicates
@@ -377,9 +382,9 @@ const GiftList: React.FC = () => {
 
   // Sort gifts based on current sort settings
   const sortedGifts = useMemo(() => {
-    if (!sortColumn) return gifts;
+    if (!sortColumn) return displayedGifts;
 
-    return [...gifts].sort((a, b) => {
+    return [...displayedGifts].sort((a, b) => {
       let aValue: any;
       let bValue: any;
 
@@ -424,7 +429,7 @@ const GiftList: React.FC = () => {
       if (aValue > bValue) return sortDirection === 'asc' ? 1 : -1;
       return 0;
     });
-  }, [gifts, sortColumn, sortDirection, cachedConstituents]);
+  }, [displayedGifts, sortColumn, sortDirection, cachedConstituents]);
 
   // Get unique values for filter dropdowns
   const uniqueTypes = useMemo(() => {
@@ -599,6 +604,30 @@ const GiftList: React.FC = () => {
     }
   }, [gifts.length, isCompleteView]);
 
+  // Progressive loading effect
+  useEffect(() => {
+    if (gifts.length === 0) {
+      setDisplayedGifts([]);
+      setIsLoadingComplete(false);
+      return;
+    }
+
+    const targetCount = Math.min(gifts.length, MAX_CARDS_TO_DISPLAY);
+
+    if (displayedGifts.length < targetCount) {
+      const timer = setTimeout(() => {
+        setDisplayedGifts(prev => {
+          const newCount = Math.min(prev.length + 50, targetCount);
+          return gifts.slice(0, newCount);
+        });
+      }, 100); // Small delay for smooth progressive loading
+
+      return () => clearTimeout(timer);
+    } else if (displayedGifts.length === targetCount && !isLoadingComplete) {
+      setIsLoadingComplete(true);
+    }
+  }, [gifts, displayedGifts.length, isLoadingComplete]);
+
   if (loading) {
     return (
       <div style={{
@@ -768,6 +797,38 @@ const GiftList: React.FC = () => {
       minHeight: "600px",
       position: "relative"
     }}>
+      {/* Card Count Display */}
+      {gifts.length > 0 && (
+        <div style={{
+          marginBottom: "20px",
+          padding: "12px 16px",
+          backgroundColor: "#e3f2fd",
+          border: "1px solid #bbdefb",
+          borderRadius: "8px",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          color: "#1565c0"
+        }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+            <span style={{ fontSize: "16px" }}>📊</span>
+            <span style={{ fontWeight: "bold" }}>
+              Showing {displayedGifts.length.toLocaleString()} of {totalCount.toLocaleString()} cards
+            </span>
+            {displayedGifts.length < totalCount && displayedGifts.length < MAX_CARDS_TO_DISPLAY && (
+              <span style={{ fontSize: "14px", color: "#1976d2" }}>
+                (Loading more...)
+              </span>
+            )}
+          </div>
+          {isLoadingComplete && (
+            <span style={{ fontSize: "14px", color: "#2e7d32", fontWeight: "bold" }}>
+              ✅ All cards loaded
+            </span>
+          )}
+        </div>
+      )}
+
       <div style={{
         display: "flex",
         justifyContent: "space-between",
@@ -1188,7 +1249,7 @@ const GiftList: React.FC = () => {
             minHeight: "400px",
             fontSize: 0 // Remove whitespace between inline-block elements
           }}>
-            {sortedGifts.map((gift) => (
+            {displayedGifts.map((gift) => (
               <div key={gift.id} className="gift-card-wrapper" style={{
                 display: "inline-block",
                 width: `${zoomLevel}px`,
@@ -1210,8 +1271,31 @@ const GiftList: React.FC = () => {
             ))}
           </div>
 
-          {/* Load More Trigger */}
-          {nextLink && !loading && (
+          {/* Completion Message */}
+          {isLoadingComplete && (
+            <div style={{
+              textAlign: "center",
+              marginTop: "20px",
+              padding: "16px",
+              backgroundColor: "#d4edda",
+              border: "1px solid #c3e6cb",
+              borderRadius: "8px",
+              color: "#155724"
+            }}>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "8px" }}>
+                <span style={{ fontSize: "18px" }}>✅</span>
+                <span style={{ fontWeight: "bold", fontSize: "16px" }}>
+                  All cards have been displayed
+                </span>
+              </div>
+              <p style={{ margin: "8px 0 0", fontSize: "14px", color: "#0f5132" }}>
+                Showing {displayedGifts.length.toLocaleString()} of {totalCount.toLocaleString()} total cards
+              </p>
+            </div>
+          )}
+
+          {/* Load More Trigger - Only show if not complete and there are more cards to load */}
+          {nextLink && !loading && !isLoadingComplete && displayedGifts.length < totalCount && (
             <div
               ref={loadMoreTriggerRef}
               style={{
