@@ -51,6 +51,8 @@ interface GiftCardProps {
   formatCurrency: (amount?: { value: number; currency?: string }) => string;
   formatDate: (dateString?: string) => string;
   zoomLevel?: number;
+  cardNumber?: number;
+  totalCount?: number;
 }
 
 const GiftCard: React.FC<GiftCardProps> = React.memo(({
@@ -61,7 +63,9 @@ const GiftCard: React.FC<GiftCardProps> = React.memo(({
   onHandleImageError,
   formatCurrency,
   formatDate,
-  zoomLevel = 500
+  zoomLevel = 500,
+  cardNumber,
+  totalCount
 }) => {
   const { t } = useTranslation();
   const isExpanded = expandedRows.has(gift.id);
@@ -127,6 +131,21 @@ const GiftCard: React.FC<GiftCardProps> = React.memo(({
             alignItems: "center",
             gap: "8px"
           }}>
+            {/* Card Number Badge */}
+            {cardNumber && totalCount && (
+              <span style={{
+                backgroundColor: "#17a2b8",
+                color: "white",
+                padding: "3px 6px",
+                borderRadius: "10px",
+                fontSize: "10px",
+                fontWeight: "bold",
+                minWidth: "40px",
+                textAlign: "center"
+              }}>
+                #{cardNumber}/{totalCount}
+              </span>
+            )}
             {gift.is_anonymous && (
               <span style={{
                 backgroundColor: "#ffc107",

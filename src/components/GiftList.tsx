@@ -1133,7 +1133,7 @@ const GiftList: React.FC = () => {
             gridTemplateColumns: "repeat(auto-fit, minmax(400px, 1fr))",
             gap: "20px"
           }}>
-            {sortedGifts.map(gift => (
+            {sortedGifts.map((gift, index) => (
               <div key={gift.id} style={{
                 border: "1px solid #e9ecef",
                 borderRadius: "8px",
@@ -1157,8 +1157,23 @@ const GiftList: React.FC = () => {
                       {cachedConstituents[gift.constituent_id || '']?.name || t('giftList.constituent.loading')}
                     </div>
                   </div>
-                  <div style={{ fontSize: "18px", fontWeight: "bold", color: "#28a745" }}>
-                    {formatCurrency(gift.amount)}
+                  <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                    {/* Card Number Badge */}
+                    <span style={{
+                      backgroundColor: "#17a2b8",
+                      color: "white",
+                      padding: "3px 6px",
+                      borderRadius: "10px",
+                      fontSize: "10px",
+                      fontWeight: "bold",
+                      minWidth: "40px",
+                      textAlign: "center"
+                    }}>
+                      #{index + 1}/{totalCount}
+                    </span>
+                    <div style={{ fontSize: "18px", fontWeight: "bold", color: "#28a745" }}>
+                      {formatCurrency(gift.amount)}
+                    </div>
                   </div>
                 </div>
 
@@ -1249,7 +1264,7 @@ const GiftList: React.FC = () => {
             minHeight: "400px",
             fontSize: 0 // Remove whitespace between inline-block elements
           }}>
-            {displayedGifts.map((gift) => (
+            {displayedGifts.map((gift, index) => (
               <div key={gift.id} className="gift-card-wrapper" style={{
                 display: "inline-block",
                 width: `${zoomLevel}px`,
@@ -1266,6 +1281,8 @@ const GiftList: React.FC = () => {
                   formatCurrency={formatCurrency}
                   formatDate={formatDate}
                   zoomLevel={zoomLevel}
+                  cardNumber={index + 1}
+                  totalCount={totalCount}
                 />
               </div>
             ))}
