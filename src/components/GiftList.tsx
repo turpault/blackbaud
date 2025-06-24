@@ -278,6 +278,7 @@ const GiftList: React.FC = () => {
       setError(null);
       setGifts([]);
       setNextLink(null);
+      // Don't reset displayedGifts here - let the progressive loading effect handle it
     } else {
       setLoadingMore(true);
     }
@@ -585,10 +586,19 @@ const GiftList: React.FC = () => {
 
   // Progressive loading effect
   useEffect(() => {
-    if (gifts.length === 0) {
+    // Only reset if we're actually loading and have no gifts
+    if (gifts.length === 0 && loading) {
       setDisplayedGifts([]);
       setIsLoadingComplete(false);
       return;
+    }
+
+    // If we have gifts but no displayed gifts yet, start progressive loading
+    if (gifts.length > 0 && displayedGifts.length === 0) {
+      const timer = setTimeout(() => {
+        setDisplayedGifts(gifts.slice(0, Math.min(25, gifts.length)));
+      }, 100);
+      return () => clearTimeout(timer);
     }
 
     const targetCount = Math.min(gifts.length, MAX_CARDS_TO_DISPLAY);
@@ -606,18 +616,23 @@ const GiftList: React.FC = () => {
       // Only set complete when we've displayed all loaded gifts AND there are no more to load from API
       setIsLoadingComplete(true);
     }
-  }, [gifts, displayedGifts.length, isLoadingComplete, nextLink]);
+  }, [gifts, displayedGifts.length, isLoadingComplete, nextLink, loading]);
 
   // Debounced card count for smoother display
   const [debouncedDisplayedCount, setDebouncedDisplayedCount] = useState<number>(0);
 
   useEffect(() => {
+    // Don't update the debounced count if we're loading and have no displayed gifts yet
+    if (loading && displayedGifts.length === 0) {
+      return;
+    }
+
     const timer = setTimeout(() => {
       setDebouncedDisplayedCount(displayedGifts.length);
     }, 200); // Debounce the count updates
 
     return () => clearTimeout(timer);
-  }, [displayedGifts.length]);
+  }, [displayedGifts.length, loading]);
 
   if (loading) {
     return (
