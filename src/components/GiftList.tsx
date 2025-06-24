@@ -283,9 +283,9 @@ const GiftList: React.FC = () => {
     }
 
     try {
-      // Use centralized query handler
+      // Use centralized query handler - increase initial load size
       const response: GiftListResponse = await authService.executeQuery(
-        () => authService.getGifts(50, filters.list_id || undefined),
+        () => authService.getGifts(200, filters.list_id || undefined), // Increased from 50 to 200
         'fetching gifts',
         (errorMsg) => setError(errorMsg)
       );
@@ -596,16 +596,17 @@ const GiftList: React.FC = () => {
     if (displayedGifts.length < targetCount) {
       const timer = setTimeout(() => {
         setDisplayedGifts(prev => {
-          const newCount = Math.min(prev.length + 50, targetCount);
+          const newCount = Math.min(prev.length + 100, targetCount); // Increased batch size from 50 to 100
           return gifts.slice(0, newCount);
         });
-      }, 100); // Small delay for smooth progressive loading
+      }, 50); // Reduced delay for faster loading
 
       return () => clearTimeout(timer);
-    } else if (displayedGifts.length === targetCount && !isLoadingComplete) {
+    } else if (displayedGifts.length === targetCount && !isLoadingComplete && !nextLink) {
+      // Only set complete when we've displayed all loaded gifts AND there are no more to load from API
       setIsLoadingComplete(true);
     }
-  }, [gifts, displayedGifts.length, isLoadingComplete]);
+  }, [gifts, displayedGifts.length, isLoadingComplete, nextLink]);
 
   if (loading) {
     return (
@@ -1018,7 +1019,7 @@ const GiftList: React.FC = () => {
           </div>
 
           {/* Completion Message */}
-          {isLoadingComplete && (
+          {isLoadingComplete && !nextLink && (
             <div style={{
               textAlign: "center",
               marginTop: "20px",
@@ -1041,7 +1042,7 @@ const GiftList: React.FC = () => {
           )}
 
           {/* Load More Trigger - Only show if not complete and there are more cards to load */}
-          {nextLink && !loading && !isLoadingComplete && displayedGifts.length < totalCount && (
+          {nextLink && !loading && displayedGifts.length < totalCount && (
             <div
               ref={loadMoreTriggerRef}
               style={{
