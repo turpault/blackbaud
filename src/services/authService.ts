@@ -11,6 +11,8 @@ import {
 class AuthService {
   private sessionInfo: SessionInfo | null = null;
   private sessionCheckPromise: Promise<SessionInfo> | null = null;
+  private lastSessionCheck: number = 0; // Timestamp of last session check
+  private readonly SESSION_CACHE_DURATION = 60000; // 1 minute in milliseconds
   
   // Blackbaud API configuration
   private readonly BLACKBAUD_API_BASE = 'https://api.sky.blackbaud.com';
@@ -98,15 +100,25 @@ class AuthService {
 
   // Check authentication status with the proxy server
   async checkAuthentication(): Promise<SessionInfo> {
+    const now = Date.now();
+    
+    // If we have cached session info and it's within the cache duration, return it
+    if (this.sessionInfo && (now - this.lastSessionCheck) < this.SESSION_CACHE_DURATION) {
+      console.log('📋 Using cached session info (debounced)');
+      return this.sessionInfo;
+    }
+
     // Avoid multiple simultaneous requests
     if (this.sessionCheckPromise) {
       return this.sessionCheckPromise;
     }
 
+    console.log('🔄 Fetching fresh session info from /blackbaud/oauth/session');
     this.sessionCheckPromise = this.fetchSessionInfo();
     
     try {
       this.sessionInfo = await this.sessionCheckPromise;
+      this.lastSessionCheck = now;
       return this.sessionInfo;
     } finally {
       this.sessionCheckPromise = null;
@@ -277,11 +289,11 @@ class AuthService {
         return response.data;
       } catch (error: any) {
         if (error.response?.status === 401) {
-          // Token might be expired - clear cached session and retry once
-          this.sessionInfo = null;
+          // Token might be expired - force refresh session and retry once
+          console.log('🔄 401 error detected, forcing session refresh');
           
           try {
-            const newSession = await this.checkAuthentication();
+            const newSession = await this.forceRefreshSession();
             if (newSession.authenticated && newSession.accessToken && newSession.subscriptionKey) {
               // Retry the request with fresh token and subscription key
               axiosConfig.headers!['Authorization'] = `${newSession.tokenType || 'Bearer'} ${newSession.accessToken}`;
@@ -571,11 +583,11 @@ class AuthService {
         return response.data;
       } catch (error: any) {
         if (error.response?.status === 401) {
-          // Token might be expired - clear cached session and retry once
-          this.sessionInfo = null;
+          // Token might be expired - force refresh session and retry once
+          console.log('🔄 401 error detected, forcing session refresh');
           
           try {
-            const newSession = await this.checkAuthentication();
+            const newSession = await this.forceRefreshSession();
             if (newSession.authenticated && newSession.accessToken && newSession.subscriptionKey) {
               // Retry the request with fresh token and subscription key
               axiosConfig.headers!['Authorization'] = `${newSession.tokenType || 'Bearer'} ${newSession.accessToken}`;
@@ -652,6 +664,15 @@ class AuthService {
     }
 
     return results;
+  }
+
+  // Force refresh session info (bypasses cache)
+  async forceRefreshSession(): Promise<SessionInfo> {
+    console.log('🔄 Force refreshing session info');
+    this.sessionInfo = null;
+    this.lastSessionCheck = 0;
+    this.sessionCheckPromise = null;
+    return this.checkAuthentication();
   }
 }
 
