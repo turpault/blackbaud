@@ -6,6 +6,7 @@ export interface OAuthSessionResponse {
   timestamp: string;
   subscriptionKey?: string;
   subscriptionKeyHeader?: string;
+  error?: string;
   session?: {
     accessToken: string;
     tokenType?: string;
@@ -14,6 +15,7 @@ export interface OAuthSessionResponse {
     isExpired?: boolean;
     expiresIn?: number | null;
     sessionId?: string;
+    refreshed?: boolean;
   };
 }
 
