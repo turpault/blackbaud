@@ -1,7 +1,6 @@
+import React, { useState, useEffect } from "react";
 import authService from "../services/authService";
 import { ConstituentInfo } from "../types/auth";
-import React, { useState, useEffect } from "react";
-import { useTranslation } from "react-i18next";
 
 interface ConstituentManagerProps {
   constituentId?: string;

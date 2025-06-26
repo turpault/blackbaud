@@ -3,7 +3,6 @@ import { useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import authService from "../services/authService";
 import type { ConstituentInfo } from "../types/auth";
-import { constituentQueue, attachmentQueue } from "../utils/concurrentQueue";
 import QueueManager from "./QueueManager";
 import LazyLoadingStats from "./LazyLoadingStats";
 import PdfDownloadStatus from "./PdfDownloadStatus";
@@ -12,35 +11,30 @@ import GiftCard from "./GiftCard";
 // Define types inline since we removed the auth types file
 interface Gift {
   id: string;
-  constituent_id?: string;
   amount?: {
     value: number;
     currency?: string;
   };
+  currency_code?: string;
   date?: string;
   type?: string;
-  subtype?: string;
-  designation?: string;
-  reference?: string;
-  gift_status?: string;
-  acknowledgment_status?: string;
-  receipt_status?: string;
+  constituent_id?: string;
+  constituent?: ConstituentInfo;
   attachments?: GiftAttachment[];
+  gift_status?: string;
+  designation?: string;
+  campaign?: string;
+  appeal?: string;
+  subtype?: string;
   [key: string]: any;
 }
 
 interface GiftAttachment {
-  id?: string;
+  id: string;
   name: string;
-  type?: string;
+  file_name: string;
   url?: string;
-  thumbnail_url?: string;
-  date?: string;
-  file_name?: string;
-  file_size?: number;
-  content_type?: string;
-  parent_id?: string;
-  tags?: string[];
+  content_type: string;
   [key: string]: any;
 }
 
@@ -50,32 +44,13 @@ interface GiftListResponse {
   next_link?: string;
 }
 
-interface GiftPayment {
-  payment_method?: string;
-  check_number?: string;
-  check_date?: string;
-  [key: string]: any;
-}
-
-interface SoftCredit {
-  constituent: {
-    name: string;
-    [key: string]: any;
-  };
-  amount?: {
-    value: number;
-    currency?: string;
-  };
-  [key: string]: any;
-}
-
 type SortDirection = 'asc' | 'desc' | null;
 
 interface Filters {
-  type: string;
-  status: string;
-  subtype: string;
-  list_id: string;
+  listId: string;
+  giftType: string;
+  dateFrom: string;
+  dateTo: string;
 }
 
 // Loading states for better UX
@@ -110,17 +85,11 @@ const GiftList: React.FC = () => {
   const [loadingMore, setLoadingMore] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
-  const [imageErrors, setImageErrors] = useState<Set<string>>(new Set());
   const [sortColumn, setSortColumn] = useState<string | null>(searchParams.get('sortColumn'));
   const [sortDirection, setSortDirection] = useState<SortDirection>(searchParams.get('sortDirection') as SortDirection);
   const [nextLink, setNextLink] = useState<string | null>(null);
   const [totalCount, setTotalCount] = useState<number>(0);
-  const [cachedConstituents, setCachedConstituents] = useState<Record<string, ConstituentInfo | null>>({});
-  const [giftAttachments, setGiftAttachments] = useState<Record<string, GiftAttachment[]>>({});
-  const [loadingStates, setLoadingStates] = useState<LoadingStates>({
-    constituents: new Set(),
-    attachments: new Set()
-  });
+  const [constituentCache, setConstituentCache] = useState<Record<string, ConstituentInfo>>({});
   const [cachedLists, setCachedLists] = useState<Record<string, { name: string; description?: string }>>({});
 
   // PDF loading statistics
@@ -129,7 +98,6 @@ const GiftList: React.FC = () => {
     loadedPdfs: 0,
     pendingPdfs: 0
   });
-  const [loadedPdfIds, setLoadedPdfIds] = useState<Set<string>>(new Set());
 
   // Zoom level for card sizing
   const [zoomLevel, setZoomLevel] = useState<number>(500); // Default 500px width
@@ -139,156 +107,31 @@ const GiftList: React.FC = () => {
   const [isLoadingComplete, setIsLoadingComplete] = useState<boolean>(false);
   const MAX_CARDS_TO_DISPLAY = 2000;
 
-  // Refs for tracking loading states
-  const loadingAttachmentsRef = useRef<Set<string>>(new Set());
-  const loadingTasksRef = useRef<Set<string>>(new Set()); // Track queued tasks to prevent duplicates
-
   // Debounced filters for better performance
   const [immediateFilters, debouncedFilters, setImmediateFilters] = useDebouncedState<Filters>({
-    type: searchParams.get('type') || '',
-    status: searchParams.get('status') || '',
-    subtype: searchParams.get('subtype') || '',
-    list_id: searchParams.get('list_id') || ''
+    listId: searchParams.get('listId') || '',
+    giftType: searchParams.get('giftType') || '',
+    dateFrom: searchParams.get('dateFrom') || '',
+    dateTo: searchParams.get('dateTo') || ''
   }, 300);
 
   // Use debounced filters for API calls
   const filters = debouncedFilters;
 
-  // Wrap isPdfFile in useCallback to fix dependency issues
-  const isPdfFile = useCallback((attachment: GiftAttachment): boolean => {
-    const fileName = attachment.file_name || attachment.name || '';
-    const contentType = attachment.content_type || '';
-    return fileName.toLowerCase().endsWith('.pdf') || contentType.toLowerCase().includes('pdf');
-  }, []);
-
-  // Wrap handleImageError in useCallback to fix dependency issues
-  const handleImageError = useCallback((attachmentId: string): void => {
-    setImageErrors(prev => new Set([...Array.from(prev), attachmentId]));
-  }, []);
-
-  // Queue constituent loading using the queue
-  const queueConstituentLoad = useCallback((constituentId: string): void => {
-    console.log(`📋 Queueing constituent load for ${constituentId}. Already cached: ${cachedConstituents[constituentId] !== undefined}`);
-
-    if (!constituentId || cachedConstituents[constituentId] !== undefined) return;
-
-    // Add task to the queue
-    constituentQueue.add({
-      id: `constituent_${constituentId}`,
-      type: 'constituent',
-      priority: 1,
-      execute: async () => {
-        console.log(`📡 Fetching constituent ${constituentId} from API`);
-        const constituent = await authService.getConstituent(constituentId);
-        console.log(`✅ Fetched constituent ${constituentId}:`, constituent);
-        return constituent;
-      },
-      onSuccess: (constituent) => {
-        console.log(`💾 Updating cached constituent ${constituentId}:`, constituent);
-        setCachedConstituents(prev => ({ ...prev, [constituentId]: constituent }));
-      },
-      onError: (error) => {
-        console.error(`❌ Failed to fetch constituent ${constituentId}:`, error);
-        setCachedConstituents(prev => ({ ...prev, [constituentId]: null }));
-      }
-    });
-  }, [cachedConstituents]);
-
-  // Load gift attachments using the queue
-  const loadGiftAttachments = useCallback(async (giftId: string): Promise<void> => {
-    // Don't fetch if already loading, already have attachments, or task already queued
-    if (loadingAttachmentsRef.current.has(giftId) ||
-      giftAttachments[giftId] !== undefined ||
-      loadingTasksRef.current.has(giftId)) {
-      console.log(`🚫 Skipping attachment load for ${giftId} - already loading, loaded, or queued`);
-      return;
-    }
-
-    // Mark as loading and track task
-    const newLoadingAttachments = new Set([...Array.from(loadingStates.attachments), giftId]);
-    setLoadingStates(prev => ({
-      ...prev,
-      attachments: newLoadingAttachments
-    }));
-    loadingAttachmentsRef.current.add(giftId);
-    loadingTasksRef.current.add(giftId);
-
-    console.log(`📋 Queueing attachment load for gift ${giftId}`);
-
-    // Add task to the queue
-    attachmentQueue.add({
-      id: `attachment_${giftId}`,
-      type: 'attachment',
-      priority: 2,
-      execute: async () => {
-        console.log(`📡 Loading attachments for gift ${giftId}`);
-        const response = await authService.executeQuery(
-          () => authService.getGiftAttachments(giftId),
-          `fetching attachments for gift ${giftId}`
-        );
-        console.log(`✅ Loaded attachments for gift ${giftId}:`, response);
-        return response;
-      },
-      onSuccess: (response) => {
-        console.log(`💾 Updating attachments for gift ${giftId}:`, response);
-        setGiftAttachments(prev => ({
-          ...prev,
-          [giftId]: response.value || []
-        }));
-      },
-      onError: (error) => {
-        console.error(`❌ Failed to fetch attachments for gift ${giftId}:`, error);
-        setGiftAttachments(prev => ({
-          ...prev,
-          [giftId]: []
-        }));
-      }
-    });
-
-    // Set up cleanup
-    const cleanup = () => {
-      const remainingLoading = new Set(Array.from(loadingStates.attachments).filter(id => id !== giftId));
-      setLoadingStates(prev => ({
-        ...prev,
-        attachments: remainingLoading
-      }));
-      loadingAttachmentsRef.current.delete(giftId);
-      loadingTasksRef.current.delete(giftId);
-    };
-
-    // Wait for task to complete
-    setTimeout(() => {
-      cleanup();
-    }, 100);
-  }, [giftAttachments, loadingStates.attachments]);
-
-  // Load attachments for visible gifts when they come into view
-  const loadAttachmentsForVisibleGifts = useCallback((visibleGiftIds: string[]): void => {
-    visibleGiftIds.forEach(giftId => {
-      if (!loadingAttachmentsRef.current.has(giftId) && giftAttachments[giftId] === undefined) {
-        // Small delay to avoid overwhelming the API
-        setTimeout(() => loadGiftAttachments(giftId), Math.random() * 500);
-      }
-    });
-  }, [loadGiftAttachments, giftAttachments]);
-
-  // Fetch gifts - only use for initial loads and filter changes
-  // For infinite scroll, use loadMoreGifts instead
+  // Fetch gifts function
   const fetchGifts = useCallback(async (reset: boolean = true): Promise<void> => {
     if (reset) {
       setLoading(true);
       setError(null);
       setGifts([]);
       setNextLink(null);
-      // Don't reset displayedGifts here - let the progressive loading effect handle it
     } else {
       setLoadingMore(true);
     }
 
     try {
-      // Use centralized query handler - increase initial load size
       const response: GiftListResponse = await authService.executeQuery(
-        () => authService.getGifts(200, filters.list_id || undefined), // Increased from 50 to 200
+        () => authService.getGifts(50, filters.listId || undefined),
         'fetching gifts',
         (errorMsg) => setError(errorMsg)
       );
@@ -301,24 +144,18 @@ const GiftList: React.FC = () => {
 
       setNextLink(response.next_link || null);
       setTotalCount(response.count || 0);
-
-      // Queue constituent loading for new gifts
-      const newGifts = response.value || [];
-      newGifts.forEach(gift => {
-        if (gift.constituent_id && cachedConstituents[gift.constituent_id] === undefined) {
-          queueConstituentLoad(gift.constituent_id);
-        }
-      });
-
-    } catch (error) {
-      console.error('❌ Error fetching gifts:', error);
-      setError('Failed to load gifts');
+    } catch (err: any) {
+      console.error("Failed to fetch gifts:", err);
     } finally {
-      setLoading(false);
-      setLoadingMore(false);
+      if (reset) {
+        setLoading(false);
+      } else {
+        setLoadingMore(false);
+      }
     }
-  }, [filters.list_id, cachedConstituents, queueConstituentLoad]);
+  }, [filters.listId]);
 
+  // Load more gifts function
   const loadMoreGifts = useCallback(async (): Promise<void> => {
     if (!nextLink || loadingMore) return;
 
@@ -326,34 +163,22 @@ const GiftList: React.FC = () => {
       setLoadingMore(true);
       const response: GiftListResponse = await authService.executeQuery(
         () => authService.apiRequestUrl(nextLink),
-        'fetching more gifts'
+        'loading more gifts'
       );
 
       setGifts(prev => [...prev, ...(response.value || [])]);
       setNextLink(response.next_link || null);
-
-      // Queue constituent loading for new gifts
-      const newGifts = response.value || [];
-      newGifts.forEach(gift => {
-        if (gift.constituent_id && cachedConstituents[gift.constituent_id] === undefined) {
-          queueConstituentLoad(gift.constituent_id);
-        }
-      });
-
-    } catch (error) {
-      console.error('❌ Error loading more gifts:', error);
-      setError('Failed to load more gifts');
+    } catch (err: any) {
+      console.error("Failed to load more gifts:", err);
     } finally {
       setLoadingMore(false);
     }
-  }, [nextLink, loadingMore, cachedConstituents, queueConstituentLoad]);
+  }, [nextLink, loadingMore]);
 
   // Load gifts on mount and when filters change
   useEffect(() => {
-    // Only call fetchGifts on mount or when filters actually change
-    // Don't call it repeatedly due to fetchGifts dependency changes
     fetchGifts();
-  }, [filters.list_id]); // Only depend on the actual filter that matters
+  }, [fetchGifts]);
 
   // Memoized handlers to prevent unnecessary re-renders
   const memoizedToggleRowExpansion = useCallback((giftId: string): void => {
@@ -368,17 +193,15 @@ const GiftList: React.FC = () => {
     });
   }, []);
 
-  const memoizedHandlePdfLoaded = useCallback((pdfId: string): void => {
-    setLoadedPdfIds(prev => new Set([...Array.from(prev), pdfId]));
-    setPdfStats(prev => ({
-      ...prev,
-      loadedPdfs: prev.loadedPdfs + 1,
-      pendingPdfs: Math.max(0, prev.pendingPdfs - 1)
-    }));
+  // Placeholder functions for required props
+  const handlePdfLoaded = useCallback((pdfId: string): void => {
+    // Placeholder - can be implemented later if needed
+    console.log('PDF loaded:', pdfId);
   }, []);
 
-  const memoizedHandleImageError = useCallback((attachmentId: string): void => {
-    setImageErrors(prev => new Set([...Array.from(prev), attachmentId]));
+  const handleImageError = useCallback((attachmentId: string): void => {
+    // Placeholder - can be implemented later if needed
+    console.log('Image error:', attachmentId);
   }, []);
 
   // Sort gifts based on current sort settings
@@ -399,8 +222,8 @@ const GiftList: React.FC = () => {
           bValue = new Date(b.date || '').getTime();
           break;
         case 'constituent':
-          aValue = cachedConstituents[a.constituent_id || '']?.name || '';
-          bValue = cachedConstituents[b.constituent_id || '']?.name || '';
+          aValue = constituentCache[a.constituent_id || '']?.name || '';
+          bValue = constituentCache[b.constituent_id || '']?.name || '';
           break;
         case 'type':
           aValue = a.type || '';
@@ -430,7 +253,7 @@ const GiftList: React.FC = () => {
       if (aValue > bValue) return sortDirection === 'asc' ? 1 : -1;
       return 0;
     });
-  }, [displayedGifts, sortColumn, sortDirection, cachedConstituents]);
+  }, [displayedGifts, sortColumn, sortDirection, constituentCache]);
 
   // Get unique values for filter dropdowns
   const uniqueTypes = useMemo(() => {
@@ -485,10 +308,10 @@ const GiftList: React.FC = () => {
 
   const updateUrlParams = (newFilters: Filters, newSortColumn?: string | null, newSortDirection?: SortDirection) => {
     const params = new URLSearchParams();
-    if (newFilters.type) params.set('type', newFilters.type);
-    if (newFilters.status) params.set('status', newFilters.status);
-    if (newFilters.subtype) params.set('subtype', newFilters.subtype);
-    if (newFilters.list_id) params.set('list_id', newFilters.list_id);
+    if (newFilters.listId) params.set('listId', newFilters.listId);
+    if (newFilters.giftType) params.set('giftType', newFilters.giftType);
+    if (newFilters.dateFrom) params.set('dateFrom', newFilters.dateFrom);
+    if (newFilters.dateTo) params.set('dateTo', newFilters.dateTo);
     if (newSortColumn) params.set('sortColumn', newSortColumn);
     if (newSortDirection) params.set('sortDirection', newSortDirection);
     setSearchParams(params);
@@ -501,7 +324,7 @@ const GiftList: React.FC = () => {
   };
 
   const clearFilters = (): void => {
-    const newFilters = { type: '', status: '', subtype: '', list_id: '' };
+    const newFilters = { listId: '', giftType: '', dateFrom: '', dateTo: '' };
     setImmediateFilters(newFilters);
     updateUrlParams(newFilters, sortColumn, sortDirection);
   };
@@ -569,10 +392,10 @@ const GiftList: React.FC = () => {
 
   // Load list name when list filter is set
   useEffect(() => {
-    if (filters.list_id && !cachedLists[filters.list_id]) {
-      loadListName(filters.list_id);
+    if (filters.listId && !cachedLists[filters.listId]) {
+      loadListName(filters.listId);
     }
-  }, [filters.list_id, cachedLists, loadListName]);
+  }, [filters.listId, cachedLists, loadListName]);
 
   // Preserve scroll position on refresh
   useEffect(() => {
@@ -866,8 +689,8 @@ const GiftList: React.FC = () => {
         <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
           <label style={{ fontWeight: "bold", fontSize: "14px" }}>{t('giftList.filters.type')}:</label>
           <select
-            value={immediateFilters.type}
-            onChange={(e) => handleFilterChange('type', e.target.value)}
+            value={immediateFilters.giftType}
+            onChange={(e) => handleFilterChange('giftType', e.target.value)}
             style={{
               padding: "6px 10px",
               border: "1px solid #ced4da",
@@ -884,10 +707,11 @@ const GiftList: React.FC = () => {
         </div>
 
         <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-          <label style={{ fontWeight: "bold", fontSize: "14px" }}>{t('giftList.filters.status')}:</label>
-          <select
-            value={immediateFilters.status}
-            onChange={(e) => handleFilterChange('status', e.target.value)}
+          <label style={{ fontWeight: "bold", fontSize: "14px" }}>{t('giftList.filters.dateFrom')}:</label>
+          <input
+            type="date"
+            value={immediateFilters.dateFrom}
+            onChange={(e) => handleFilterChange('dateFrom', e.target.value)}
             style={{
               padding: "6px 10px",
               border: "1px solid #ced4da",
@@ -895,19 +719,15 @@ const GiftList: React.FC = () => {
               fontSize: "14px",
               minWidth: "120px"
             }}
-          >
-            <option value="">{t('giftList.filters.allStatuses')}</option>
-            {uniqueStatuses.map(status => (
-              <option key={status} value={status}>{status}</option>
-            ))}
-          </select>
+          />
         </div>
 
         <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-          <label style={{ fontWeight: "bold", fontSize: "14px" }}>{t('giftList.filters.subtype')}:</label>
-          <select
-            value={immediateFilters.subtype}
-            onChange={(e) => handleFilterChange('subtype', e.target.value)}
+          <label style={{ fontWeight: "bold", fontSize: "14px" }}>{t('giftList.filters.dateTo')}:</label>
+          <input
+            type="date"
+            value={immediateFilters.dateTo}
+            onChange={(e) => handleFilterChange('dateTo', e.target.value)}
             style={{
               padding: "6px 10px",
               border: "1px solid #ced4da",
@@ -915,12 +735,7 @@ const GiftList: React.FC = () => {
               fontSize: "14px",
               minWidth: "120px"
             }}
-          >
-            <option value="">{t('giftList.filters.allSubtypes')}</option>
-            {uniqueSubtypes.map(subtype => (
-              <option key={subtype} value={subtype}>{subtype}</option>
-            ))}
-          </select>
+          />
         </div>
 
         <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
@@ -965,7 +780,7 @@ const GiftList: React.FC = () => {
           )}
         </div>
 
-        {(immediateFilters.type || immediateFilters.status || immediateFilters.subtype || immediateFilters.list_id) && (
+        {(immediateFilters.giftType || immediateFilters.dateFrom || immediateFilters.dateTo) && (
           <button
             onClick={clearFilters}
             style={{
@@ -1033,11 +848,12 @@ const GiftList: React.FC = () => {
                 fontSize: "14px" // Restore font size
               }}>
                 <GiftCard
+                  key={gift.id}
                   gift={gift}
                   expandedRows={expandedRows}
                   onToggleExpansion={memoizedToggleRowExpansion}
-                  onHandlePdfLoaded={memoizedHandlePdfLoaded}
-                  onHandleImageError={memoizedHandleImageError}
+                  onHandlePdfLoaded={handlePdfLoaded}
+                  onHandleImageError={handleImageError}
                   formatCurrency={formatCurrency}
                   formatDate={formatDate}
                   zoomLevel={zoomLevel}

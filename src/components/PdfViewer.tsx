@@ -1,8 +1,7 @@
 import React, { useCallback, useEffect, useState, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { getProxiedUrl, isBlackbaudFileUrl } from '../utils/corsProxy';
-import PdfDownloadManager from '../utils/pdfDownloadManager';
-import { pdfQueue } from '../utils/concurrentQueue';
+import { getDocument, GlobalWorkerOptions } from "pdfjs-dist";
 
 // Import PDF.js - using require to avoid TypeScript issues
 // eslint-disable-next-line @typescript-eslint/no-var-requires
@@ -157,7 +156,7 @@ const PdfViewer: React.FC<PdfViewerProps> = ({
       console.log(`🚀 Loading PDF immediately on mount: ${name}`);
       loadPdf();
     }
-  }, []); // Empty dependency array - only run once on mount
+  }, [pdfDoc, loading, error, name, loadPdf]);
 
   const renderAllPages = useCallback(async () => {
     if (!pdfDoc || totalPages === 0) return;

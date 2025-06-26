@@ -5,7 +5,6 @@ import {
   SessionInfo, 
   ApiRequestOptions, 
   ConstituentInfo,
-  SessionInfoFromOAuth 
 } from '../types/auth';
 
 class AuthService {

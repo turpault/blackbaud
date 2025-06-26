@@ -103,86 +103,14 @@ const AttachmentsSection: React.FC<AttachmentsSectionProps> = React.memo(({
     setImageErrors(prev => new Set([...Array.from(prev), attachmentId]));
   };
 
-  const handleDownload = (attachment: GiftAttachment): void => {
-    if (!attachment.url) {
-      console.error('No URL available for download');
-      return;
-    }
-
-    const link = document.createElement('a');
-    link.href = attachment.url;
-    link.download = attachment.name || attachment.file_name || 'attachment';
-    link.target = '_blank';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-  };
-
-  const handlePrint = async (attachment: GiftAttachment): Promise<void> => {
-    if (!attachment.url) {
-      console.error('No URL available for printing');
-      return;
-    }
-
+  const handleDownload = async (attachment: GiftAttachment): Promise<void> => {
     try {
-      // Create a print window with all pages
-      const printWindow = window.open('', '_blank');
-      if (!printWindow) {
-        alert('Please allow popups to print this document');
-        return;
+      const response = await authService.apiRequest(`/constituent/v1/attachments/${attachment.id}/download`);
+      if (response && response.url) {
+        window.open(response.url, '_blank');
       }
-
-      // Get all pages by adding page parameter and use CORS proxy
-      const separator = attachment.url.includes('?') ? '&' : '?';
-      const printUrlWithParams = `${attachment.url}${separator}convert=jpeg&width=800&page=all`;
-      const printUrl = getProxiedUrl(printUrlWithParams);
-
-      printWindow.document.write(`
-        <!DOCTYPE html>
-        <html>
-        <head>
-          <title>Print: ${attachment.name || attachment.file_name || 'PDF Document'}</title>
-          <style>
-            body { 
-              margin: 0; 
-              padding: 20px; 
-              font-family: Arial, sans-serif; 
-            }
-            .page { 
-              margin-bottom: 20px; 
-              text-align: center; 
-            }
-            img { 
-              max-width: 100%; 
-              height: auto; 
-              border: 1px solid #ccc; 
-            }
-            .header {
-              text-align: center;
-              margin-bottom: 20px;
-              font-size: 18px;
-              font-weight: bold;
-            }
-            @media print {
-              body { padding: 0; }
-              .page { margin-bottom: 0; page-break-after: always; }
-              .page:last-child { page-break-after: avoid; }
-            }
-          </style>
-        </head>
-        <body>
-          <div class="header">${attachment.name || attachment.file_name || 'PDF Document'}</div>
-          <div class="page">
-            <img src="${printUrl}" alt="PDF Page" onload="window.print()" />
-          </div>
-        </body>
-        </html>
-      `);
-
-      printWindow.document.close();
     } catch (error) {
-      console.error('Error printing PDF:', error);
-      alert('Error printing document. Please try downloading and printing manually.');
+      console.error('Failed to download attachment:', error);
     }
   };
 

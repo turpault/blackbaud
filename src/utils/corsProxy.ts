@@ -1,11 +1,8 @@
 /**
- * CORS Proxy Utilities for Blackbaud API
+ * CORS Proxy for Blackbaud API
  * 
- * This utility helps bypass CORS restrictions when accessing external files
- * by routing requests through the proxy server's dynamic target endpoints.
+ * This utility helps bypass CORS restrictions when accessing Blackbaud file URLs
  */
-
-import authService from '../services/authService';
 
 /**
  * Check if a URL is a Blackbaud file URL that needs CORS proxy
