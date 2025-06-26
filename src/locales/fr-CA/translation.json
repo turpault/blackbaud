@@ -169,6 +169,13 @@
       "constituentCount": "Nombre de constituants"
     }
   },
+  "quota": {
+    "title": "Quota API Dépassé",
+    "message": "T'as atteint le maximum d'appels API permis, mon chum ! Faut que tu attendes avant d'en faire d'autres.",
+    "timeRemaining": "Temps restant :",
+    "dismiss": "Fermer ça",
+    "autoHide": "Ça va se cacher tout seul quand le quota se remet à zéro"
+  },
   "errors": {
     "general": "Ayoye ! Y'a eu un bug quelque part, ça arrive !",
     "network": "Problème de réseau, ça marche pas pantoute !",

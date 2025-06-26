@@ -70,17 +70,37 @@ class AuthService {
     try {
       return await this.withRetry(queryFn);
     } catch (error: any) {
-      // Check if it's a rate limiting error
+      // Enhanced rate limiting error detection
       const isRateLimit = error.response?.status === 429 || 
                          error.status === 429 || 
                          error.message?.includes('429') ||
                          error.message?.toLowerCase().includes('rate limit') ||
-                         error.message?.toLowerCase().includes('too many requests');
+                         error.message?.toLowerCase().includes('too many requests') ||
+                         error.message?.toLowerCase().includes('quota exceeded') ||
+                         error.message?.toLowerCase().includes('quota limit') ||
+                         error.message?.toLowerCase().includes('throttled') ||
+                         error.message?.toLowerCase().includes('throttling');
       
       // Create user-friendly error message
       let errorMessage: string;
+      let retryAfter: string | undefined;
+      
       if (isRateLimit) {
-        errorMessage = `⚠️ Rate limit reached while ${context}. The request is being retried automatically with exponential backoff. If this persists, please wait a few minutes before trying again.`;
+        // Enhanced quota exceeded message
+        retryAfter = error.response?.headers?.['retry-after'] || 
+                    error.response?.headers?.['Retry-After'] ||
+                    error.response?.data?.retry_after;
+        
+        if (retryAfter) {
+          const retrySeconds = parseInt(retryAfter);
+          const retryMinutes = Math.ceil(retrySeconds / 60);
+          errorMessage = `🚫 API Quota Exceeded: You've reached the maximum number of API calls allowed. Please wait ${retryMinutes} minute${retryMinutes > 1 ? 's' : ''} before trying again.`;
+        } else {
+          errorMessage = `🚫 API Quota Exceeded: You've reached the maximum number of API calls allowed while ${context}. Please wait a few minutes before trying again.`;
+        }
+
+        // Notify global quota context if available
+        this.notifyQuotaExceeded(retryAfter);
       } else {
         errorMessage = error.message || `Failed to ${context}`;
       }
@@ -94,7 +114,16 @@ class AuthService {
       const enhancedError: any = new Error(errorMessage);
       enhancedError.originalError = error;
       enhancedError.isRateLimit = isRateLimit;
+      enhancedError.retryAfter = retryAfter;
       throw enhancedError;
+    }
+  }
+
+  // Method to notify quota context (will be set by the app)
+  private notifyQuotaExceeded(retryAfter?: string): void {
+    // This will be set by the app when the service is initialized
+    if ((window as any).__quotaContext) {
+      (window as any).__quotaContext.setQuotaExceeded(true, retryAfter);
     }
   }
 

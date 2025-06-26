@@ -216,5 +216,12 @@
       "description": "Description",
       "constituentCount": "Constituent Count"
     }
+  },
+  "quota": {
+    "title": "API Quota Exceeded",
+    "message": "You've reached the maximum number of API calls allowed. Please wait before making new requests.",
+    "timeRemaining": "Time remaining:",
+    "dismiss": "Dismiss",
+    "autoHide": "This will automatically hide when the quota resets"
   }
 } 

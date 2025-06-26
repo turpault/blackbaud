@@ -4,6 +4,8 @@ import { useTranslation } from "react-i18next";
 import authService from "./services/authService";
 import { SessionInfo } from "./types/auth";
 import LanguageSelector from "./components/LanguageSelector";
+import { QuotaProvider, useQuota } from "./contexts/QuotaContext";
+import QuotaNotification from "./components/QuotaNotification";
 
 // Lazy load all page components
 const Home = React.lazy(() => import("./components/Home"));
@@ -51,12 +53,20 @@ const LoadingFallback: React.FC<{ message?: string }> = ({ message }) => {
   );
 };
 
-const App: React.FC = () => {
+// App content wrapper with quota notification
+const AppContent: React.FC = () => {
   const { t } = useTranslation();
   const [sessionInfo, setSessionInfo] = useState<SessionInfo | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
+  const { isQuotaExceeded, retryAfter, clearQuotaExceeded, setQuotaExceeded } = useQuota();
 
   useEffect(() => {
+    // Connect quota context to authService
+    (window as any).__quotaContext = {
+      setQuotaExceeded,
+      clearQuotaExceeded
+    };
+
     // Check authentication status on app load
     const checkAuth = async (): Promise<void> => {
       try {
@@ -71,7 +81,12 @@ const App: React.FC = () => {
     };
 
     checkAuth();
-  }, []);
+
+    // Cleanup on unmount
+    return () => {
+      delete (window as any).__quotaContext;
+    };
+  }, [setQuotaExceeded, clearQuotaExceeded]);
 
   // Show loading spinner while checking authentication
   if (loading) {
@@ -115,7 +130,7 @@ const App: React.FC = () => {
   const isAuthenticated = sessionInfo?.authenticated ?? false;
 
   return (
-    <div className="App">
+    <>
       <LanguageSelector />
       <Suspense fallback={<LoadingFallback message={t('common.loadingContent')} />}>
         <Routes>
@@ -153,7 +168,24 @@ const App: React.FC = () => {
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </Suspense>
-    </div>
+
+      {/* Global Quota Notification */}
+      <QuotaNotification
+        isVisible={isQuotaExceeded}
+        retryAfter={retryAfter}
+        onDismiss={clearQuotaExceeded}
+      />
+    </>
+  );
+};
+
+const App: React.FC = () => {
+  return (
+    <QuotaProvider>
+      <div className="App">
+        <AppContent />
+      </div>
+    </QuotaProvider>
   );
 };
 
