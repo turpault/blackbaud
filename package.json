@@ -20,6 +20,7 @@
     "build": "react-scripts build",
     "build:branch": "node scripts/build-branch.js",
     "build:dev": "GENERATE_SOURCEMAP=true react-scripts build",
+    "dev:watch": "nodemon --watch src --ext ts,tsx,js,jsx,json --exec \"GENERATE_SOURCEMAP=true npm run build\"",
     "test": "react-scripts test",
     "eject": "react-scripts eject",
     "ts-run": "ts-node",
