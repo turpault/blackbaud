@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import authService from "../services/authService";
+import { clearCache } from "../utils/cacheDecorator";
 
 // Define types for List API
 interface List {
@@ -269,6 +270,15 @@ const Lists: React.FC = () => {
     navigate(`/dashboard/gifts?list_id=${encodeURIComponent(listId)}`);
   };
 
+  const handleRefresh = useCallback(async (): Promise<void> => {
+    // Clear list cache before fetching fresh data
+    const clearedCount = clearCache('lists');
+    console.log(`Cleared ${clearedCount} cached list entries`);
+
+    // Fetch fresh data
+    await fetchLists();
+  }, [fetchLists]);
+
   const containerStyle: React.CSSProperties = {
     maxWidth: "1400px",
     margin: "0 auto",
@@ -398,7 +408,7 @@ const Lists: React.FC = () => {
       <div style={headerStyle}>
         <h2>📝 Blackbaud Lists ({sortedLists.length} of {totalCount.toLocaleString()})</h2>
         <button
-          onClick={() => fetchLists()}
+          onClick={handleRefresh}
           style={{
             padding: "10px 20px",
             backgroundColor: "#28a745",
