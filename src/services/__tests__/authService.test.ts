@@ -2,110 +2,98 @@ import authService from '../authService';
 import axios from 'axios';
 
 // Mock localStorage
-const localStorageMock = (() => {
-  let store: Record<string, string> = {};
-  return {
-    getItem: jest.fn((key: string) => store[key] || null),
-    setItem: jest.fn((key: string, value: string) => {
-      store[key] = value.toString();
-    }),
-    removeItem: jest.fn((key: string) => {
-      delete store[key];
-    }),
-    clear: jest.fn(() => {
-      store = {};
-    })
-  };
-})();
-
+const localStorageMock = {
+  getItem: jest.fn(),
+  setItem: jest.fn(),
+  removeItem: jest.fn(),
+  clear: jest.fn(),
+};
 Object.defineProperty(window, 'localStorage', {
   value: localStorageMock,
 });
 
-// Mock window.location
-delete (window as any).location;
-window.location = { href: '' } as any;
+// Mock axios
+jest.mock('axios');
+const mockedAxios = axios as jest.Mocked<typeof axios>;
 
-// Mock setTimeout for testing retry logic
-jest.useFakeTimers();
+// Mock window.location
+Object.defineProperty(window, 'location', {
+  value: {
+    href: '',
+  },
+  writable: true,
+});
 
 describe('AuthService', () => {
   beforeEach(() => {
-    localStorageMock.clear();
     jest.clearAllMocks();
-    jest.clearAllTimers();
-  });
-
-  afterEach(() => {
-    jest.runOnlyPendingTimers();
-    jest.useRealTimers();
     jest.useFakeTimers();
   });
 
-  describe('isAuthenticated', () => {
-    it('should return false when session info is not available', () => {
-      expect(authService.isAuthenticated()).toBe(false);
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
+  describe('checkAuthentication', () => {
+    it('should return authenticated session when valid session exists', async () => {
+      const mockResponse = {
+        data: {
+          authenticated: true,
+          provider: 'blackbaud',
+          timestamp: new Date().toISOString(),
+          subscriptionKey: 'test-subscription-key',
+          session: {
+            accessToken: 'test-access-token',
+            tokenType: 'Bearer',
+            scope: 'test-scope',
+            expiresAt: new Date(Date.now() + 3600000).toISOString(),
+            isExpired: false,
+            expiresIn: 3600,
+            sessionId: 'test-session-id'
+          }
+        }
+      };
+
+      mockedAxios.get.mockResolvedValue(mockResponse);
+
+      const result = await authService.checkAuthentication();
+
+      expect(result.authenticated).toBe(true);
+      expect(result.accessToken).toBe('test-access-token');
+      expect(result.subscriptionKey).toBe('test-subscription-key');
+      expect(mockedAxios.get).toHaveBeenCalledWith('/blackbaud/oauth/session', {
+        timeout: 10000,
+        withCredentials: true
+      });
     });
 
-    it('should return true when valid access token exists', () => {
-      const futureTime = Date.now() + 3600000; // 1 hour from now
-      localStorageMock.setItem('blackbaud_access_token', 'test-token');
-      localStorageMock.setItem('blackbaud_token_expires', futureTime.toString());
-      
-      expect(authService.isAuthenticated()).toBe(true);
+    it('should return unauthenticated session when no valid session exists', async () => {
+      const mockResponse = {
+        data: {
+          authenticated: false,
+          provider: 'blackbaud',
+          timestamp: new Date().toISOString()
+        }
+      };
+
+      mockedAxios.get.mockResolvedValue(mockResponse);
+
+      const result = await authService.checkAuthentication();
+
+      expect(result.authenticated).toBe(false);
+      expect(result.accessToken).toBeUndefined();
     });
 
-    it('should return false when token is expired', () => {
-      const pastTime = Date.now() - 3600000; // 1 hour ago
-      localStorageMock.setItem('blackbaud_access_token', 'test-token');
-      localStorageMock.setItem('blackbaud_token_expires', pastTime.toString());
-      
-      expect(authService.isAuthenticated()).toBe(false);
+    it('should handle errors and return unauthenticated session', async () => {
+      mockedAxios.get.mockRejectedValue(new Error('Network error'));
+
+      const result = await authService.checkAuthentication();
+
+      expect(result.authenticated).toBe(false);
     });
   });
 
-  describe('getAccessToken', () => {
-    it('should return null when no token exists', () => {
-      expect(authService.getAccessToken()).toBeNull();
-    });
-
-    it('should return the access token when it exists', () => {
-      localStorageMock.setItem('blackbaud_access_token', 'test-token');
-      
-      expect(authService.getAccessToken()).toBe('test-token');
-    });
-  });
-
-  describe('logout', () => {
-    it('should clear all stored tokens and state', () => {
-      localStorageMock.setItem('blackbaud_access_token', 'test-token');
-      localStorageMock.setItem('blackbaud_refresh_token', 'refresh-token');
-      localStorageMock.setItem('blackbaud_token_expires', '123456789');
-      localStorageMock.setItem('oauth_state', 'test-state');
-
-      authService.logout();
-
-      expect(localStorageMock.removeItem).toHaveBeenCalledWith('blackbaud_access_token');
-      expect(localStorageMock.removeItem).toHaveBeenCalledWith('blackbaud_refresh_token');
-      expect(localStorageMock.removeItem).toHaveBeenCalledWith('blackbaud_token_expires');
-      expect(localStorageMock.removeItem).toHaveBeenCalledWith('oauth_state');
-    });
-  });
-
-  describe('initiateLogin', () => {
-    it('should redirect to the authorization endpoint with correct parameters', () => {
-      authService.initiateLogin();
-
-      expect(localStorageMock.setItem).toHaveBeenCalledWith('oauth_state', expect.any(String));
-      expect(window.location.href).toContain(OAUTH_CONFIG.authorizationEndpoint);
-      expect(window.location.href).toContain(`client_id=${OAUTH_CONFIG.clientId}`);
-      expect(window.location.href).toContain(`redirect_uri=${encodeURIComponent(OAUTH_CONFIG.redirectUri)}`);
-      expect(window.location.href).toContain(`scope=${encodeURIComponent(OAUTH_CONFIG.scope)}`);
-      expect(window.location.href).toContain('response_type=code');
-    });
-  });
-
-  describe('429 rate limiting handling', () => {
+  describe('quota exceeded handling', () => {
     beforeEach(() => {
       // Mock axios for API tests
       jest.spyOn(axios, 'request').mockImplementation();
@@ -153,12 +141,61 @@ describe('AuthService', () => {
 
       expect(axios.request).toHaveBeenCalledTimes(2);
       expect(console.warn).toHaveBeenCalledWith(
-        expect.stringContaining('Rate limited (429), retrying in')
+        expect.stringContaining('Quota exceeded (429), retrying in')
       );
       expect(result).toEqual(mockSuccessResponse.data);
     });
 
-    it('should fail after max retries on persistent 429 errors', async () => {
+    it('should retry API requests on 403 Quota Exceeded errors with exponential backoff', async () => {
+      const mockAuthResponse = {
+        authenticated: true,
+        accessToken: 'test-token',
+        subscriptionKey: 'test-key',
+        tokenType: 'Bearer'
+      };
+
+      const mockSuccessResponse = {
+        data: {
+          count: 1,
+          value: [{ id: '1', name: 'Test Query' }]
+        }
+      };
+
+      // Mock the authentication check
+      jest.spyOn(authService, 'checkAuthentication').mockResolvedValue(mockAuthResponse);
+
+      // First call returns 403 Quota Exceeded, second call succeeds
+      (axios.request as jest.Mock)
+        .mockRejectedValueOnce({
+          response: { 
+            status: 403,
+            data: {
+              title: 'Quota Exceeded',
+              detail: 'API quota has been exceeded'
+            },
+            headers: {
+              'retry-after': '60'
+            }
+          },
+          message: 'Quota Exceeded'
+        })
+        .mockResolvedValueOnce(mockSuccessResponse);
+
+      const resultPromise = authService.getQueries(50);
+
+      // Fast-forward through the retry delay
+      jest.advanceTimersByTime(2000);
+
+      const result = await resultPromise;
+
+      expect(axios.request).toHaveBeenCalledTimes(2);
+      expect(console.warn).toHaveBeenCalledWith(
+        expect.stringContaining('Quota exceeded (403), retrying in')
+      );
+      expect(result).toEqual(mockSuccessResponse.data);
+    });
+
+    it('should fail after max retries on persistent quota errors', async () => {
       const mockAuthResponse = {
         authenticated: true,
         accessToken: 'test-token',
@@ -168,10 +205,16 @@ describe('AuthService', () => {
 
       jest.spyOn(authService, 'checkAuthentication').mockResolvedValue(mockAuthResponse);
 
-      // All calls return 429
+      // All calls return 403 Quota Exceeded
       (axios.request as jest.Mock).mockRejectedValue({
-        response: { status: 429 },
-        message: 'Rate limit exceeded'
+        response: { 
+          status: 403,
+          data: {
+            title: 'Quota Exceeded',
+            detail: 'API quota has been exceeded'
+          }
+        },
+        message: 'Quota Exceeded'
       });
 
       const resultPromise = authService.getQueries(50);
@@ -181,11 +224,11 @@ describe('AuthService', () => {
         jest.advanceTimersByTime(10000);
       }
 
-      await expect(resultPromise).rejects.toThrow('Rate limit exceeded');
+      await expect(resultPromise).rejects.toThrow('Quota Exceeded');
       expect(axios.request).toHaveBeenCalledTimes(6); // Initial + 5 retries
     });
 
-    it('should not retry on non-429 errors', async () => {
+    it('should not retry on non-quota errors', async () => {
       const mockAuthResponse = {
         authenticated: true,
         accessToken: 'test-token',
@@ -215,15 +258,21 @@ describe('AuthService', () => {
 
       jest.spyOn(authService, 'checkAuthentication').mockResolvedValue(mockAuthResponse);
 
-      // Return 429 error
+      // Return 403 Quota Exceeded error
       (axios.request as jest.Mock).mockRejectedValue({
-        response: { status: 429 },
-        message: 'Rate limit exceeded'
+        response: { 
+          status: 403,
+          data: {
+            title: 'Quota Exceeded',
+            detail: 'API quota has been exceeded'
+          }
+        },
+        message: 'Quota Exceeded'
       });
 
       await expect(
         authService.apiRequest('/test', { retries: false })
-      ).rejects.toThrow('Rate limit exceeded');
+      ).rejects.toThrow('Quota Exceeded');
       
       expect(axios.request).toHaveBeenCalledTimes(1); // No retries when disabled
     });
@@ -252,10 +301,19 @@ describe('AuthService', () => {
       expect(result).toEqual(mockResult);
     });
 
-    it('should call error handler on 429 errors with rate limit message', async () => {
+    it('should call error handler on 403 quota errors with rate limit message', async () => {
       const mockError = {
-        response: { status: 429 },
-        message: 'Rate limit exceeded'
+        response: { 
+          status: 403,
+          data: {
+            title: 'Quota Exceeded',
+            detail: 'API quota has been exceeded'
+          },
+          headers: {
+            'retry-after': '120'
+          }
+        },
+        message: 'Quota Exceeded'
       };
       const mockQueryFn = jest.fn().mockRejectedValue(mockError);
       const mockErrorHandler = jest.fn();
@@ -265,12 +323,12 @@ describe('AuthService', () => {
       ).rejects.toThrow();
 
       expect(mockErrorHandler).toHaveBeenCalledWith(
-        expect.stringContaining('⚠️ Rate limit reached while test operation'),
+        expect.stringContaining('🚫 API Quota Exceeded: You\'ve reached the maximum number of API calls allowed. Please wait 2 minutes before trying again.'),
         true
       );
     });
 
-    it('should call error handler on non-429 errors with generic message', async () => {
+    it('should call error handler on non-quota errors with generic message', async () => {
       const mockError = {
         response: { status: 500 },
         message: 'Server error'

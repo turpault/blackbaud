@@ -34,15 +34,24 @@ class AuthService {
       } catch (error: any) {
         lastError = error;
         
-        // Check if it's a 429 error
-        const is429Error = error.response?.status === 429 || 
+        // Check if it's a quota/rate limiting error (including Blackbaud's 403 Quota Exceeded)
+        const isQuotaError = error.response?.status === 429 || 
+                           error.response?.status === 403 ||
                            error.status === 429 || 
+                           error.status === 403 ||
                            error.message?.includes('429') ||
+                           error.message?.includes('403') ||
                            error.message?.toLowerCase().includes('rate limit') ||
-                           error.message?.toLowerCase().includes('too many requests');
+                           error.message?.toLowerCase().includes('too many requests') ||
+                           error.message?.toLowerCase().includes('quota exceeded') ||
+                           error.message?.toLowerCase().includes('quota limit') ||
+                           error.message?.toLowerCase().includes('throttled') ||
+                           error.message?.toLowerCase().includes('throttling') ||
+                           error.response?.data?.title?.toLowerCase().includes('quota exceeded') ||
+                           error.response?.data?.detail?.toLowerCase().includes('quota exceeded');
         
-        // Only retry on 429 errors, and only if we have attempts left
-        if (!is429Error || attempt === maxRetries) {
+        // Only retry on quota errors, and only if we have attempts left
+        if (!isQuotaError || attempt === maxRetries) {
           throw error;
         }
         
@@ -51,7 +60,7 @@ class AuthService {
         const jitter = Math.random() * 0.1 * backoffDelay; // 10% jitter
         const totalDelay = backoffDelay + jitter;
         
-        console.warn(`Rate limited (429), retrying in ${Math.round(totalDelay)}ms... (attempt ${attempt + 1}/${maxRetries + 1})`);
+        console.warn(`Quota exceeded (${error.response?.status || error.status}), retrying in ${Math.round(totalDelay)}ms... (attempt ${attempt + 1}/${maxRetries + 1})`);
         
         // Wait before retrying
         await new Promise(resolve => setTimeout(resolve, totalDelay));
@@ -70,16 +79,21 @@ class AuthService {
     try {
       return await this.withRetry(queryFn);
     } catch (error: any) {
-      // Enhanced rate limiting error detection
+      // Enhanced rate limiting error detection (including Blackbaud's 403 Quota Exceeded)
       const isRateLimit = error.response?.status === 429 || 
+                         error.response?.status === 403 ||
                          error.status === 429 || 
+                         error.status === 403 ||
                          error.message?.includes('429') ||
+                         error.message?.includes('403') ||
                          error.message?.toLowerCase().includes('rate limit') ||
                          error.message?.toLowerCase().includes('too many requests') ||
                          error.message?.toLowerCase().includes('quota exceeded') ||
                          error.message?.toLowerCase().includes('quota limit') ||
                          error.message?.toLowerCase().includes('throttled') ||
-                         error.message?.toLowerCase().includes('throttling');
+                         error.message?.toLowerCase().includes('throttling') ||
+                         error.response?.data?.title?.toLowerCase().includes('quota exceeded') ||
+                         error.response?.data?.detail?.toLowerCase().includes('quota exceeded');
       
       // Create user-friendly error message
       let errorMessage: string;
