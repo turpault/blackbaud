@@ -176,6 +176,9 @@ const AppContent: React.FC = () => {
         </Routes>
       </Suspense>
 
+      {/* Global Language Selector */}
+      <LanguageSelector />
+
       {/* Global Quota Notification */}
       <QuotaNotification
         isVisible={isQuotaExceeded}

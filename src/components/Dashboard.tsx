@@ -3,7 +3,6 @@ import { Link, useParams, useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import authService from "../services/authService";
 import { SessionInfo } from "../types/auth";
-import LanguageSelector from "./LanguageSelector";
 
 // Lazy load the GiftList component since it's large
 const GiftList = React.lazy(() => import("./GiftList"));
@@ -167,45 +166,6 @@ const Dashboard: React.FC<DashboardProps> = ({ sessionInfo }) => {
           <p style={{ margin: 0, fontSize: "14px", color: "#666" }}>{t('dashboard.subtitle')}</p>
         </div>
         <div style={{ display: "flex", gap: "10px", alignItems: "center" }}>
-          {/* Language Selector */}
-          <div style={{
-            display: 'flex',
-            gap: '3px',
-            padding: '4px',
-            backgroundColor: 'rgba(255, 255, 255, 0.8)',
-            borderRadius: '12px',
-            border: '1px solid #dee2e6'
-          }}>
-            {[
-              { code: 'en', name: 'English', flag: '🇺🇸' },
-              { code: 'fr', name: 'Français', flag: '🇫🇷' },
-              { code: 'fr-CA', name: 'Français (Québec)', flag: '🇨🇦' }
-            ].map((language) => (
-              <button
-                key={language.code}
-                onClick={() => {
-                  const { i18n } = require('react-i18next');
-                  i18n.changeLanguage(language.code);
-                }}
-                style={{
-                  padding: '4px 8px',
-                  border: 'none',
-                  borderRadius: '8px',
-                  cursor: 'pointer',
-                  fontSize: '11px',
-                  fontWeight: '500',
-                  transition: 'all 0.2s ease',
-                  backgroundColor: 'transparent',
-                  color: '#666',
-                  ...(language.code === 'en' ? { backgroundColor: '#667eea', color: 'white' } : {})
-                }}
-                title={`Switch to ${language.name}`}
-              >
-                {language.flag}
-              </button>
-            ))}
-          </div>
-
           <Link
             to="/logout"
             style={logoutButtonStyle}

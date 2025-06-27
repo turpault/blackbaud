@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect } from "react";
 import { useTranslation } from "react-i18next";
 
 const LanguageSelector: React.FC = () => {
@@ -11,8 +11,28 @@ const LanguageSelector: React.FC = () => {
   ];
 
   const handleLanguageChange = (languageCode: string) => {
+    console.log('LanguageSelector: Changing language to:', languageCode);
+    console.log('LanguageSelector: Current language before change:', i18n.language);
     i18n.changeLanguage(languageCode);
+    console.log('LanguageSelector: Language change requested');
   };
+
+  // Monitor language changes
+  useEffect(() => {
+    const handleLanguageChanged = (lng: string) => {
+      console.log('LanguageSelector: Language changed to:', lng);
+    };
+
+    i18n.on('languageChanged', handleLanguageChanged);
+
+    return () => {
+      i18n.off('languageChanged', handleLanguageChanged);
+    };
+  }, [i18n]);
+
+  console.log('LanguageSelector: Current language:', i18n.language);
+  console.log('LanguageSelector: Available languages:', i18n.languages);
+  console.log('LanguageSelector: Is initialized:', i18n.isInitialized);
 
   const containerStyle: React.CSSProperties = {
     position: 'fixed',
