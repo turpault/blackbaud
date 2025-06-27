@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { constituentQueue, attachmentQueue, QueueStats } from '../utils/concurrentQueue';
+import { constituentQueue, QueueStats } from '../utils/concurrentQueue';
 
 interface QueueManagerProps {
   showDetails?: boolean;
@@ -9,13 +9,11 @@ interface QueueManagerProps {
 const QueueManager: React.FC<QueueManagerProps> = ({ showDetails = false }) => {
   const { t } = useTranslation();
   const [constituentStats, setConstituentStats] = useState<QueueStats>(constituentQueue.getStats());
-  const [attachmentStats, setAttachmentStats] = useState<QueueStats>(attachmentQueue.getStats());
   const [isExpanded, setIsExpanded] = useState(false);
 
   useEffect(() => {
     const updateStats = () => {
       setConstituentStats(constituentQueue.getStats());
-      setAttachmentStats(attachmentQueue.getStats());
     };
 
     const interval = setInterval(updateStats, 1000);
@@ -57,11 +55,11 @@ const QueueManager: React.FC<QueueManagerProps> = ({ showDetails = false }) => {
     console.log(`🧹 Cleared ${name} queue`);
   };
 
-  const totalTasks = constituentStats.totalTasks + attachmentStats.totalTasks;
-  const totalCompleted = constituentStats.completedTasks + attachmentStats.completedTasks;
-  const totalFailed = constituentStats.failedTasks + attachmentStats.failedTasks;
-  const totalPending = constituentStats.pendingTasks + attachmentStats.pendingTasks;
-  const totalRunning = constituentStats.runningTasks + attachmentStats.runningTasks;
+  const totalTasks = constituentStats.totalTasks;
+  const totalCompleted = constituentStats.completedTasks;
+  const totalFailed = constituentStats.failedTasks;
+  const totalPending = constituentStats.pendingTasks;
+  const totalRunning = constituentStats.runningTasks;
 
   if (!showDetails && totalTasks === 0) {
     return null;
@@ -125,7 +123,6 @@ const QueueManager: React.FC<QueueManagerProps> = ({ showDetails = false }) => {
           <button
             onClick={() => {
               clearQueue(constituentQueue, 'Constituent');
-              clearQueue(attachmentQueue, 'Attachment');
             }}
             style={{
               padding: '4px 8px',
@@ -253,58 +250,6 @@ const QueueManager: React.FC<QueueManagerProps> = ({ showDetails = false }) => {
                 <div>Failed: {constituentStats.failedTasks}</div>
                 <div>Running: {constituentStats.runningTasks}/2</div>
                 <div>Avg Time: {formatTime(constituentStats.averageExecutionTime)}</div>
-              </div>
-            </div>
-
-            <div style={{
-              border: '1px solid #e9ecef',
-              borderRadius: '6px',
-              padding: '12px'
-            }}>
-              <div style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                marginBottom: '8px'
-              }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <span style={{ fontSize: '16px' }}>📎</span>
-                  <span style={{ fontWeight: 'bold', color: '#495057' }}>Attachment Queue</span>
-                  <span style={{
-                    color: getStatusColor(getQueueStatus(attachmentStats)),
-                    fontSize: '12px'
-                  }}>
-                    {getStatusIcon(getQueueStatus(attachmentStats))} {getQueueStatus(attachmentStats)}
-                  </span>
-                </div>
-                <button
-                  onClick={() => clearQueue(attachmentQueue, 'Attachment')}
-                  style={{
-                    padding: '2px 6px',
-                    backgroundColor: '#dc3545',
-                    color: 'white',
-                    border: 'none',
-                    borderRadius: '3px',
-                    cursor: 'pointer',
-                    fontSize: '10px'
-                  }}
-                >
-                  Clear
-                </button>
-              </div>
-
-              <div style={{
-                display: 'grid',
-                gridTemplateColumns: 'repeat(4, 1fr)',
-                gap: '8px',
-                fontSize: '12px'
-              }}>
-                <div>Total: {attachmentStats.totalTasks}</div>
-                <div>Completed: {attachmentStats.completedTasks}</div>
-                <div>Pending: {attachmentStats.pendingTasks}</div>
-                <div>Failed: {attachmentStats.failedTasks}</div>
-                <div>Running: {attachmentStats.runningTasks}/3</div>
-                <div>Avg Time: {formatTime(attachmentStats.averageExecutionTime)}</div>
               </div>
             </div>
           </div>

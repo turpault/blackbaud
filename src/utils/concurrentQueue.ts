@@ -268,11 +268,4 @@ export const constituentQueue = new ConcurrentQueue({
   enableStats: true
 });
 
-export const attachmentQueue = new ConcurrentQueue({
-  maxConcurrency: 3,
-  retryDelay: 1000,
-  maxRetries: 2,
-  enableStats: true
-});
-
 export default ConcurrentQueue;

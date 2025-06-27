@@ -1,6 +1,6 @@
 import axios, { AxiosRequestConfig, AxiosResponse } from 'axios';
 import { cache } from '../utils/cacheDecorator';
-import { attachmentQueue } from '../utils/concurrentQueue';
+import { withConcurrencyLimit } from '../utils/concurrencyLimiter';
 import { constituentCacheUtils, giftCacheUtils } from '../utils/database';
 import { 
   OAuthSessionResponse, 
@@ -8,7 +8,6 @@ import {
   ApiRequestOptions, 
   ConstituentInfo,
 } from '../types/auth';
-import { withConcurrencyLimit } from '../utils/concurrencyLimiter';
 
 class AuthService {
   private sessionInfo: SessionInfo | null = null;
@@ -720,33 +719,11 @@ class AuthService {
     return this.apiRequest(url);
   }
 
-  // Get gift attachments for a specific gift
-  @withConcurrencyLimit({maxConcurrent: 1})
-  @cache({ 
-    keyPrefix: 'getGiftAttachments', 
-    expirationMs: 30*60*1000, // 30 minutes
-    keyGenerator: (giftId: string) => `${giftId}`
-  })
+  // Get gift attachments with concurrency control
+  @withConcurrencyLimit({ maxConcurrent: 3 })
   async getGiftAttachments(giftId: string): Promise<any> {
-    const taskId = `gift-attachments-${giftId}-${Date.now()}`;
-    
-    return new Promise((resolve, reject) => {
-      attachmentQueue.add({
-        id: taskId,
-        type: 'gift-attachments',
-        execute: async () => {
-          return await this.apiRequest(`/gift/v1/gifts/${giftId}/attachments`);
-        },
-        onSuccess: (result) => {
-          console.log(`✅ Gift attachments for ${giftId} completed via queue`);
-          resolve(result);
-        },
-        onError: (error) => {
-          console.error(`❌ Gift attachments for ${giftId} failed via queue:`, error);
-          reject(error);
-        }
-      });
-    });
+    console.log(`🔍 getGiftAttachments called for gift ID: ${giftId}`);
+    return await this.apiRequest(`/gift/v1/gifts/${giftId}/attachments`);
   }
 
   // Get lists from the List API

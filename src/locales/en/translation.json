@@ -88,7 +88,6 @@
     "failed": "Failed",
     "queueDetails": "Queue Details",
     "constituentQueue": "Constituent Queue",
-    "attachmentQueue": "Attachment Queue",
     "pdfQueue": "PDF Queue",
     "running": "Running",
     "avgTime": "Avg Time"
