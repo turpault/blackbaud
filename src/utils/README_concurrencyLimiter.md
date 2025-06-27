@@ -5,7 +5,6 @@ A powerful TypeScript decorator and utility for limiting concurrent executions o
 ## Features
 
 - 🚦 **Concurrency Control**: Limit the number of simultaneous executions
-- ⏱️ **Timeout Management**: Automatic timeout handling with configurable limits
 - 📊 **Queue Management**: Intelligent queue handling with overflow protection
 - 🎯 **Error Handling**: Graceful error handling with custom callbacks
 - 📈 **Statistics & Monitoring**: Real-time queue and execution statistics
@@ -24,7 +23,7 @@ The concurrency limiter is included in the project utilities. No additional inst
 import { withConcurrencyLimit } from '../utils/concurrencyLimiter';
 
 class ApiService {
-  @withConcurrencyLimit({ maxConcurrent: 3, timeout: 30000 })
+  @withConcurrencyLimit({ maxConcurrent: 3 })
   async fetchData(id: string): Promise<any> {
     // Your API call here
     return await fetch(`/api/data/${id}`);
@@ -42,8 +41,7 @@ const limitedApiCall = limitConcurrency(
     return await fetch(endpoint);
   },
   {
-    maxConcurrent: 5,
-    timeout: 10000
+    maxConcurrent: 5
   }
 );
 ```
@@ -54,8 +52,7 @@ const limitedApiCall = limitConcurrency(
 import { createConcurrencyLimiter } from '../utils/concurrencyLimiter';
 
 const limiter = createConcurrencyLimiter({
-  maxConcurrent: 2,
-  timeout: 15000
+  maxConcurrent: 2
 });
 
 const result = await limiter.executeWithLimit(
@@ -70,9 +67,7 @@ const result = await limiter.executeWithLimit(
 ```typescript
 interface ConcurrencyLimiterOptions {
   maxConcurrent?: number;        // Maximum concurrent executions (default: 5)
-  timeout?: number;              // Timeout in milliseconds (default: 30000)
   onQueueFull?: (functionName: string) => void;     // Queue overflow callback
-  onTimeout?: (functionName: string, timeout: number) => void;  // Timeout callback
   onError?: (functionName: string, error: any) => void;         // Error callback
 }
 ```
@@ -155,9 +150,6 @@ const limiter = createConcurrencyLimiter({
   onQueueFull: (functionName) => {
     console.error(`Queue overflow for ${functionName}`);
   },
-  onTimeout: (functionName, timeout) => {
-    console.error(`Timeout for ${functionName} after ${timeout}ms`);
-  },
   onError: (functionName, error) => {
     console.error(`Error in ${functionName}:`, error.message);
   }
@@ -219,8 +211,7 @@ async function processWithProgress(items: string[]): Promise<any[]> {
 1. **Choose Appropriate Limits**: Start with conservative limits and adjust based on performance
 2. **Monitor Queue Length**: Use statistics to identify bottlenecks
 3. **Handle Queue Overflow**: Implement appropriate error handling for queue full scenarios
-4. **Use Timeouts**: Always set reasonable timeouts to prevent hanging requests
-5. **Monitor Performance**: Track execution times and adjust limits accordingly
+4. **Monitor Performance**: Track execution times and adjust limits accordingly
 
 ## Performance Considerations
 
@@ -234,9 +225,8 @@ async function processWithProgress(items: string[]): Promise<any[]> {
 ### Common Issues
 
 1. **Queue Full Errors**: Increase `maxConcurrent` or implement backpressure
-2. **Timeout Errors**: Increase timeout or optimize slow operations
-3. **Memory Leaks**: Ensure proper cleanup with `clearQueue()`
-4. **Performance Issues**: Monitor statistics and adjust limits
+2. **Memory Leaks**: Ensure proper cleanup with `clearQueue()`
+3. **Performance Issues**: Monitor statistics and adjust limits
 
 ### Debug Mode
 
@@ -245,7 +235,6 @@ Enable detailed logging by setting up error callbacks:
 ```typescript
 const limiter = createConcurrencyLimiter({
   onQueueFull: (fn) => console.warn(`Queue full: ${fn}`),
-  onTimeout: (fn, timeout) => console.error(`Timeout: ${fn} after ${timeout}ms`),
   onError: (fn, error) => console.error(`Error in ${fn}:`, error)
 });
 ```

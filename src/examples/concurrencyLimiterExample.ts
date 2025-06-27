@@ -20,7 +20,6 @@ class ApiService {
     // Create a limiter instance for this service
     this.concurrencyLimiter = createConcurrencyLimiter({
       maxConcurrent: 3,
-      timeout: 30000,
       onQueueFull: (functionName) => {
         console.warn(`Queue full for ${functionName}`);
       },
@@ -31,7 +30,7 @@ class ApiService {
   }
 
   // Method decorator approach
-  @withConcurrencyLimit({ maxConcurrent: 2, timeout: 15000 })
+  @withConcurrencyLimit({ maxConcurrent: 2 })
   async fetchUserData(userId: string): Promise<any> {
     console.log(`Fetching user data for ${userId}`);
     // Simulate API call
@@ -67,8 +66,7 @@ const limitedApiCall = limitConcurrency(
     return { endpoint, data, response: 'success', timestamp: Date.now() };
   },
   {
-    maxConcurrent: 5,
-    timeout: 10000
+    maxConcurrent: 5
   }
 );
 
@@ -79,12 +77,8 @@ class AdvancedApiService {
   constructor() {
     this.limiter = createConcurrencyLimiter({
       maxConcurrent: 4,
-      timeout: 45000,
       onQueueFull: (functionName) => {
         console.error(`🚫 Queue overflow for ${functionName} - consider increasing maxConcurrent`);
-      },
-      onTimeout: (functionName, timeout) => {
-        console.error(`⏰ Timeout for ${functionName} after ${timeout}ms`);
       },
       onError: (functionName, error) => {
         console.error(`❌ Error in ${functionName}:`, error.message);
@@ -142,8 +136,7 @@ class AdaptiveApiService {
 
   constructor() {
     this.limiter = createConcurrencyLimiter({
-      maxConcurrent: 2,
-      timeout: 30000
+      maxConcurrent: 2
     });
   }
 
@@ -181,8 +174,7 @@ class IntegrationExample {
 
   constructor() {
     this.limiter = createConcurrencyLimiter({
-      maxConcurrent: 3,
-      timeout: 20000
+      maxConcurrent: 3
     });
   }
 

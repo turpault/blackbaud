@@ -7,9 +7,7 @@
 
 interface ConcurrencyLimiterOptions {
   maxConcurrent?: number;
-  timeout?: number;
   onQueueFull?: (functionName: string) => void;
-  onTimeout?: (functionName: string, timeout: number) => void;
   onError?: (functionName: string, error: any) => void;
 }
 
@@ -30,9 +28,7 @@ class ConcurrencyLimiter {
   constructor(options: ConcurrencyLimiterOptions = {}) {
     this.options = {
       maxConcurrent: options.maxConcurrent || 5,
-      timeout: options.timeout || 30000, // 30 seconds
       onQueueFull: options.onQueueFull || (() => {}),
-      onTimeout: options.onTimeout || (() => {}),
       onError: options.onError || (() => {}),
     };
   }
@@ -104,19 +100,8 @@ class ConcurrencyLimiter {
     this.running.add(queuedFunction.id);
     
     try {
-      // Set up timeout
-      const timeoutPromise = new Promise<never>((_, reject) => {
-        setTimeout(() => {
-          reject(new Error(`Timeout after ${this.options.timeout}ms`));
-        }, this.options.timeout);
-      });
-
-      // Execute the function with timeout
-      const result = await Promise.race([
-        queuedFunction.fn(),
-        timeoutPromise
-      ]);
-
+      // Execute the function
+      const result = await queuedFunction.fn();
       queuedFunction.resolve(result);
     } catch (error: any) {
       this.options.onError(queuedFunction.functionName, error);

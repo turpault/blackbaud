@@ -11,8 +11,7 @@ describe('ConcurrencyLimiter', () => {
 
   beforeEach(() => {
     limiter = createConcurrencyLimiter({
-      maxConcurrent: 2,
-      timeout: 5000
+      maxConcurrent: 2
     });
   });
 
@@ -56,17 +55,6 @@ describe('ConcurrencyLimiter', () => {
     ).rejects.toThrow('Test error');
   });
 
-  test('should respect timeout limits', async () => {
-    const slowFn = async () => {
-      await new Promise(resolve => setTimeout(resolve, 10000)); // 10 seconds
-      return 'slow result';
-    };
-
-    await expect(
-      limiter.executeWithLimit(slowFn, 'slowFunction', [])
-    ).rejects.toThrow('Timeout after 5000ms');
-  });
-
   test('should provide statistics', async () => {
     const stats = limiter.getStats();
     
@@ -100,7 +88,7 @@ describe('ConcurrencyLimiter', () => {
 describe('withConcurrencyLimit decorator', () => {
   test('should work as a method decorator', async () => {
     class TestClass {
-      @withConcurrencyLimit({ maxConcurrent: 1, timeout: 3000 })
+      @withConcurrencyLimit({ maxConcurrent: 1 })
       async testMethod(id: number): Promise<number> {
         await new Promise(resolve => setTimeout(resolve, 100));
         return id;
@@ -125,8 +113,7 @@ describe('limitConcurrency function wrapper', () => {
     };
 
     const limitedFn = limitConcurrency(originalFn, {
-      maxConcurrent: 2,
-      timeout: 5000
+      maxConcurrent: 2
     });
 
     const promises = Array.from({ length: 4 }, (_, i) => 
@@ -150,19 +137,17 @@ describe('Advanced ConcurrencyLimiter features', () => {
     expect(limiter.getStats().maxConcurrent).toBe(3);
   });
 
-  test('should handle timeout correctly', async () => {
+  test('should execute functions without timeout interference', async () => {
     const slowFn = async () => {
       await new Promise(resolve => setTimeout(resolve, 2000));
       return 'success';
     };
 
     const limiter = createConcurrencyLimiter({
-      maxConcurrent: 1,
-      timeout: 1000
+      maxConcurrent: 1
     });
 
-    await expect(
-      limiter.executeWithLimit(slowFn, 'timeoutFunction', [])
-    ).rejects.toThrow('Timeout after 1000ms');
+    const result = await limiter.executeWithLimit(slowFn, 'slowFunction', []);
+    expect(result).toBe('success');
   });
 }); 

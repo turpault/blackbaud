@@ -8,6 +8,7 @@ import {
   ApiRequestOptions, 
   ConstituentInfo,
 } from '../types/auth';
+import { withConcurrencyLimit } from '../utils/concurrencyLimiter';
 
 class AuthService {
   private sessionInfo: SessionInfo | null = null;
@@ -627,6 +628,7 @@ class AuthService {
   }
 
   // Get gifts with comprehensive filtering and caching
+  @withConcurrencyLimit({maxConcurrent: 1})
   @cache({ 
     keyPrefix: 'gifts', 
     expirationMs: 24*60*60*1000, // 24 hours
@@ -719,6 +721,7 @@ class AuthService {
   }
 
   // Get gift attachments for a specific gift
+  @withConcurrencyLimit({maxConcurrent: 1})
   @cache({ 
     keyPrefix: 'getGiftAttachments', 
     expirationMs: 30*60*1000, // 30 minutes
@@ -747,6 +750,7 @@ class AuthService {
   }
 
   // Get lists from the List API
+  @withConcurrencyLimit({maxConcurrent: 1})
   @cache({ 
     keyPrefix: 'lists', 
     expirationMs: 6000000, // 100 minutes
@@ -769,6 +773,7 @@ class AuthService {
   }
 
   // Get constituent information by ID with caching
+  @withConcurrencyLimit({maxConcurrent: 1})
   @cache({ 
     keyPrefix: 'getConstituent', 
     expirationMs: 30*24*60*60*1000, // 30 days
