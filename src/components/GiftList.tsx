@@ -152,6 +152,8 @@ const GiftList: React.FC = () => {
   const filters = debouncedFilters;
 
   const [currentOffset, setCurrentOffset] = useState<number>(0);
+  const [backgroundLoading, setBackgroundLoading] = useState<boolean>(false);
+  const [backgroundProgress, setBackgroundProgress] = useState<{ loaded: number; total: number }>({ loaded: 0, total: 0 });
 
   // Fetch gifts function
   const fetchGifts = useCallback(async (reset: boolean = true): Promise<void> => {
@@ -200,6 +202,12 @@ const GiftList: React.FC = () => {
 
       setNextLink(response.next_link || null);
       setTotalCount(response.count || 0);
+
+      // Auto-start background loading if there are more gifts available
+      if (response.next_link && response.count && response.count > (response.value?.length || 0)) {
+        console.log(`🔄 Auto-starting background loading: ${response.value?.length || 0} loaded, ${response.count} total available`);
+        setTimeout(() => loadAllGiftsInBackground(), 1000); // Small delay to let initial load settle
+      }
     } catch (err: any) {
       console.error("Failed to fetch gifts:", err);
     } finally {
@@ -250,6 +258,69 @@ const GiftList: React.FC = () => {
       setLoadingMore(false);
     }
   }, [loadingMore, currentOffset, filters]);
+
+  // Load all gifts in background
+  const loadAllGiftsInBackground = useCallback(async (): Promise<void> => {
+    if (backgroundLoading) return;
+
+    setBackgroundLoading(true);
+    setBackgroundProgress({ loaded: gifts.length, total: totalCount });
+
+    let offset = gifts.length;
+    let hasMore = true;
+
+    try {
+      while (hasMore) {
+        // Convert string filters to proper types for API
+        const apiFilters = {
+          listId: filters.listId || undefined,
+          giftType: filters.giftType || undefined,
+          giftStatus: filters.giftStatus || undefined,
+          dateFrom: filters.dateFrom || undefined,
+          dateTo: filters.dateTo || undefined,
+          amountFrom: filters.amountFrom ? parseFloat(filters.amountFrom) : undefined,
+          amountTo: filters.amountTo ? parseFloat(filters.amountTo) : undefined,
+          constituentId: filters.constituentId || undefined,
+          designation: filters.designation || undefined,
+          campaign: filters.campaign || undefined,
+          appeal: filters.appeal || undefined,
+          subtype: filters.subtype || undefined,
+          acknowledgmentStatus: filters.acknowledgmentStatus || undefined,
+          receiptStatus: filters.receiptStatus || undefined,
+          isAnonymous: filters.isAnonymous ? filters.isAnonymous === 'true' : undefined,
+          sortBy: filters.sortBy || undefined,
+          sortDirection: filters.sortDirection || undefined
+        };
+
+        const response: GiftListResponse = await authService.executeQuery(
+          () => authService.getGifts(1000, offset, apiFilters),
+          `loading gifts page ${Math.floor(offset / 1000) + 1}`
+        );
+
+        if (response.value && response.value.length > 0) {
+          setGifts(prev => [...prev, ...response.value]);
+          offset += response.value.length;
+          setBackgroundProgress({ loaded: offset, total: response.count || totalCount });
+
+          // Small delay to prevent overwhelming the API
+          await new Promise(resolve => setTimeout(resolve, 100));
+        } else {
+          hasMore = false;
+        }
+
+        // Check if we have a next link
+        if (!response.next_link) {
+          hasMore = false;
+        }
+      }
+
+      console.log(`✅ Background loading complete: ${offset} gifts loaded`);
+    } catch (err: any) {
+      console.error("Failed to load all gifts in background:", err);
+    } finally {
+      setBackgroundLoading(false);
+    }
+  }, [backgroundLoading, gifts.length, totalCount, filters]);
 
   // Load gifts on mount and when filters change
   useEffect(() => {
@@ -1027,8 +1098,58 @@ const GiftList: React.FC = () => {
           >
             🔄 Refresh
           </button>
+
+          <button
+            onClick={loadAllGiftsInBackground}
+            disabled={backgroundLoading}
+            style={{
+              padding: "8px 16px",
+              backgroundColor: backgroundLoading ? "#6c757d" : "#28a745",
+              color: "white",
+              border: "none",
+              borderRadius: "6px",
+              cursor: backgroundLoading ? "not-allowed" : "pointer",
+              fontSize: "14px",
+              fontWeight: "bold",
+              display: "flex",
+              alignItems: "center",
+              gap: "8px"
+            }}
+            title={backgroundLoading ? "Loading all gifts..." : "Load all gifts in background"}
+          >
+            {backgroundLoading ? "⏳" : "📥"} {backgroundLoading ? "Loading..." : "Load All"}
+          </button>
         </div>
       </div>
+
+      {/* Background Loading Progress */}
+      {backgroundLoading && (
+        <div style={{
+          marginBottom: "15px",
+          padding: "10px 15px",
+          backgroundColor: "#e3f2fd",
+          border: "1px solid #bbdefb",
+          borderRadius: "6px",
+          display: "flex",
+          alignItems: "center",
+          gap: "10px"
+        }}>
+          <div
+            style={{
+              width: "20px",
+              height: "20px",
+              border: "2px solid #f3f3f3",
+              borderTop: "2px solid #2196F3",
+              borderRadius: "50%",
+              animation: "spin 1s linear infinite"
+            }}
+          />
+          <span style={{ fontSize: "14px", color: "#1565c0" }}>
+            Loading all gifts: {backgroundProgress.loaded.toLocaleString()} of {backgroundProgress.total.toLocaleString()}
+            ({Math.round((backgroundProgress.loaded / backgroundProgress.total) * 100)}%)
+          </span>
+        </div>
+      )}
 
       {/* Filter and Sort Controls */}
       {showFilters && (
