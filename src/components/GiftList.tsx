@@ -101,6 +101,10 @@ const GiftList: React.FC = () => {
   const containerRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
 
+  // Grid layout state
+  const [cardsPerRow, setCardsPerRow] = useState<number>(3); // Default 3 cards per row
+  const gridGap = 20; // Gap between cards
+
   // Jump to card functionality
   const [jumpToIndex, setJumpToIndex] = useState<string>('');
   const cardRefs = useRef<Map<number, HTMLDivElement>>(new Map());
@@ -428,16 +432,20 @@ const GiftList: React.FC = () => {
 
     const scrollTop = scrollContainerRef.current.scrollTop;
     const viewportHeight = containerRef.current.clientHeight;
-    const buffer = 5; // Number of cards to render outside viewport
+    const buffer = 2; // Number of rows to render outside viewport
 
-    const startIndex = Math.max(0, Math.floor(scrollTop / cardHeight) - buffer);
-    const endIndex = Math.min(
-      gifts.length - 1,
-      Math.ceil((scrollTop + viewportHeight) / cardHeight) + buffer
+    const rowHeight = cardHeight + gridGap;
+    const startRow = Math.max(0, Math.floor(scrollTop / rowHeight) - buffer);
+    const endRow = Math.min(
+      Math.ceil(gifts.length / cardsPerRow) - 1,
+      Math.ceil((scrollTop + viewportHeight) / rowHeight) + buffer
     );
 
+    const startIndex = startRow * cardsPerRow;
+    const endIndex = Math.min(gifts.length - 1, (endRow + 1) * cardsPerRow - 1);
+
     setVisibleRange({ start: startIndex, end: endIndex });
-  }, [cardHeight, gifts.length]);
+  }, [cardHeight, gridGap, cardsPerRow, gifts.length]);
 
   // Handle scroll events for virtual scrolling
   const handleScroll = useCallback(() => {
@@ -456,24 +464,26 @@ const GiftList: React.FC = () => {
   // Calculate container height and update visible range when gifts change
   useEffect(() => {
     if (containerRef.current && gifts.length > 0) {
-      const totalHeight = gifts.length * cardHeight;
+      const totalRows = Math.ceil(gifts.length / cardsPerRow);
+      const totalHeight = totalRows * (cardHeight + gridGap) - gridGap; // Subtract gap from last row
       setContainerHeight(totalHeight);
       calculateVisibleRange();
     }
-  }, [gifts.length, cardHeight, calculateVisibleRange]);
+  }, [gifts.length, cardHeight, cardsPerRow, gridGap, calculateVisibleRange]);
 
   // Debounced effect to recalculate when card height changes
   useEffect(() => {
     if (gifts.length > 0) {
       const timeoutId = setTimeout(() => {
-        const totalHeight = gifts.length * cardHeight;
+        const totalRows = Math.ceil(gifts.length / cardsPerRow);
+        const totalHeight = totalRows * (cardHeight + gridGap) - gridGap;
         setContainerHeight(totalHeight);
         calculateVisibleRange();
       }, 100); // Small delay to batch multiple height updates
 
       return () => clearTimeout(timeoutId);
     }
-  }, [cardHeight, gifts.length, calculateVisibleRange]);
+  }, [cardHeight, cardsPerRow, gridGap, gifts.length, calculateVisibleRange]);
 
   // Get visible gifts for rendering
   const visibleGifts = useMemo(() => {
@@ -491,10 +501,89 @@ const GiftList: React.FC = () => {
     }
   }, [visibleGifts.length, measureAverageCardHeight]);
 
-  // Calculate top offset for virtual scrolling
-  const getCardTop = useCallback((index: number) => {
-    return index * cardHeight;
-  }, [cardHeight]);
+  // Calculate grid position for cards
+  const getCardGridPosition = useCallback((index: number) => {
+    const row = Math.floor(index / cardsPerRow);
+    const col = index % cardsPerRow;
+    const top = row * (cardHeight + gridGap);
+    const left = col * (zoomLevel + gridGap);
+    return { top, left, row, col };
+  }, [cardsPerRow, cardHeight, gridGap, zoomLevel]);
+
+  // Calculate container width and update cards per row
+  const calculateGridLayout = useCallback(() => {
+    if (!containerRef.current) return;
+
+    const containerWidth = containerRef.current.clientWidth;
+    const availableWidth = containerWidth - (gridGap * 2); // Account for padding
+    const newCardsPerRow = Math.max(1, Math.floor(availableWidth / (zoomLevel + gridGap)));
+
+    if (newCardsPerRow !== cardsPerRow) {
+      console.log(`📐 Grid layout updated: ${cardsPerRow} → ${newCardsPerRow} cards per row`);
+      setCardsPerRow(newCardsPerRow);
+    }
+  }, [cardsPerRow, zoomLevel, gridGap]);
+
+  // Handle keyboard scrolling
+  const handleKeyDown = useCallback((e: KeyboardEvent) => {
+    if (!scrollContainerRef.current) return;
+
+    const scrollContainer = scrollContainerRef.current;
+    const viewportHeight = scrollContainer.clientHeight;
+    const currentScrollTop = scrollContainer.scrollTop;
+
+    switch (e.key) {
+      case 'PageDown':
+        e.preventDefault();
+        scrollContainer.scrollTo({
+          top: currentScrollTop + viewportHeight,
+          behavior: 'smooth'
+        });
+        break;
+      case 'PageUp':
+        e.preventDefault();
+        scrollContainer.scrollTo({
+          top: Math.max(0, currentScrollTop - viewportHeight),
+          behavior: 'smooth'
+        });
+        break;
+      case 'Home':
+        e.preventDefault();
+        scrollContainer.scrollTo({
+          top: 0,
+          behavior: 'smooth'
+        });
+        break;
+      case 'End':
+        e.preventDefault();
+        scrollContainer.scrollTo({
+          top: scrollContainer.scrollHeight,
+          behavior: 'smooth'
+        });
+        break;
+    }
+  }, []);
+
+  // Set up keyboard event listener
+  useEffect(() => {
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [handleKeyDown]);
+
+  // Update grid layout when zoom level or container size changes
+  useEffect(() => {
+    calculateGridLayout();
+  }, [calculateGridLayout, zoomLevel]);
+
+  // Handle window resize for responsive grid
+  useEffect(() => {
+    const handleResize = () => {
+      calculateGridLayout();
+    };
+
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, [calculateGridLayout]);
 
   if (loading) {
     return (
@@ -925,6 +1014,7 @@ const GiftList: React.FC = () => {
                 {/* Only render visible cards with absolute positioning */}
                 {visibleGifts.map((gift, visibleIndex) => {
                   const actualIndex = visibleRange.start + visibleIndex;
+                  const gridPos = getCardGridPosition(actualIndex);
                   return (
                     <div
                       key={gift.id}
@@ -932,12 +1022,10 @@ const GiftList: React.FC = () => {
                       className="gift-card-wrapper"
                       style={{
                         position: "absolute",
-                        top: `${getCardTop(actualIndex)}px`,
-                        left: "10px",
-                        right: "10px",
+                        top: `${gridPos.top}px`,
+                        left: `${gridPos.left}px`,
                         width: `${zoomLevel}px`,
-                        height: `${cardHeight}px`,
-                        margin: "0 auto"
+                        height: `${cardHeight}px`
                       }}
                     >
                       <GiftCard
@@ -963,7 +1051,7 @@ const GiftList: React.FC = () => {
                     ref={loadMoreTriggerRef}
                     style={{
                       position: "absolute",
-                      top: `${getCardTop(gifts.length)}px`,
+                      top: `${getCardGridPosition(gifts.length).top}px`,
                       left: "50%",
                       transform: "translateX(-50%)",
                       padding: "20px",
@@ -1013,7 +1101,21 @@ const GiftList: React.FC = () => {
             textAlign: "center"
           }}>
             Virtual scrolling: Showing cards {visibleRange.start + 1}-{visibleRange.end + 1} of {gifts.length}
-            (Card height: {cardHeight}px, Total height: {Math.round(containerHeight / 1000)}k pixels)
+            (Grid: {cardsPerRow} cards per row, Card height: {cardHeight}px, Total height: {Math.round(containerHeight / 1000)}k pixels)
+          </div>
+
+          {/* Keyboard Navigation Instructions */}
+          <div style={{
+            marginTop: "8px",
+            padding: "8px 12px",
+            backgroundColor: "#fff3cd",
+            border: "1px solid #ffeaa7",
+            borderRadius: "4px",
+            fontSize: "12px",
+            color: "#856404",
+            textAlign: "center"
+          }}>
+            ⌨️ Keyboard Navigation: Page Up/Down to scroll, Home/End to jump to top/bottom
           </div>
         </>
       )}
