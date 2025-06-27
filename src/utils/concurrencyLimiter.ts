@@ -7,7 +7,6 @@
 
 interface ConcurrencyLimiterOptions {
   maxConcurrent?: number;
-  onQueueFull?: (functionName: string) => void;
   onError?: (functionName: string, error: any) => void;
 }
 
@@ -23,35 +22,13 @@ interface QueuedFunction {
 class ConcurrencyLimiter {
   private queue: QueuedFunction[] = [];
   private running: Set<string> = new Set();
-  private options: Required<ConcurrencyLimiterOptions>;
+  private options: Required<Omit<ConcurrencyLimiterOptions, 'onQueueFull'>>;
 
   constructor(options: ConcurrencyLimiterOptions = {}) {
     this.options = {
       maxConcurrent: options.maxConcurrent || 5,
-      onQueueFull: options.onQueueFull || (() => {}),
       onError: options.onError || (() => {}),
     };
-  }
-
-  /**
-   * Decorator function that limits concurrency
-   */
-  limit<T extends (...args: any[]) => Promise<any>>(
-    target: any,
-    propertyKey: string | symbol,
-    descriptor: TypedPropertyDescriptor<T>
-  ): TypedPropertyDescriptor<T> {
-    const originalMethod = descriptor.value!;
-
-    descriptor.value = (async function(this: any, ...args: any[]): Promise<any> {
-      return this.concurrencyLimiter.executeWithLimit(
-        originalMethod.bind(this),
-        propertyKey.toString(),
-        args
-      );
-    }) as T;
-
-    return descriptor;
   }
 
   /**
@@ -73,13 +50,6 @@ class ConcurrencyLimiter {
         functionName,
         timestamp: Date.now(),
       };
-
-      // Check if queue is full
-      if (this.queue.length >= this.options.maxConcurrent * 2) {
-        this.options.onQueueFull(functionName);
-        reject(new Error(`Queue full for ${functionName}. Too many pending requests.`));
-        return;
-      }
 
       this.queue.push(queuedFunction);
       this.processQueue();
@@ -166,7 +136,17 @@ export function withConcurrencyLimit(options?: ConcurrencyLimiterOptions) {
     propertyKey: string | symbol,
     descriptor: TypedPropertyDescriptor<T>
   ): TypedPropertyDescriptor<T> {
-    return limiter.limit(target, propertyKey, descriptor);
+    const originalMethod = descriptor.value!;
+
+    descriptor.value = (async function(this: any, ...args: any[]): Promise<any> {
+      return limiter.executeWithLimit(
+        originalMethod.bind(this),
+        propertyKey.toString(),
+        args
+      );
+    }) as T;
+
+    return descriptor;
   };
 }
 
