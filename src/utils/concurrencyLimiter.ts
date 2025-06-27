@@ -79,7 +79,7 @@ class ConcurrencyLimiter {
     } finally {
       this.running.delete(queuedFunction.id);
       // Process next item in queue
-      setImmediate(() => this.processQueue());
+      setTimeout(() => this.processQueue(), 0);
     }
   }
 
