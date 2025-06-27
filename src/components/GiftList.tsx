@@ -389,10 +389,38 @@ const GiftList: React.FC = () => {
   const registerCardRef = useCallback((index: number, element: HTMLDivElement | null): void => {
     if (element) {
       cardRefs.current.set(index, element);
+
+      // Measure actual card height and update if different
+      const measuredHeight = element.offsetHeight;
+      if (measuredHeight > 0 && Math.abs(measuredHeight - cardHeight) > 5) {
+        console.log(`📏 Card height updated: ${cardHeight}px → ${measuredHeight}px`);
+        setCardHeight(measuredHeight);
+      }
     } else {
       cardRefs.current.delete(index);
     }
-  }, []);
+  }, [cardHeight]);
+
+  // Measure average card height from visible cards
+  const measureAverageCardHeight = useCallback(() => {
+    if (cardRefs.current.size === 0) return;
+
+    const heights: number[] = [];
+    cardRefs.current.forEach((element) => {
+      const height = element.offsetHeight;
+      if (height > 0) {
+        heights.push(height);
+      }
+    });
+
+    if (heights.length > 0) {
+      const averageHeight = Math.round(heights.reduce((sum, h) => sum + h, 0) / heights.length);
+      if (Math.abs(averageHeight - cardHeight) > 5) {
+        console.log(`📏 Average card height updated: ${cardHeight}px → ${averageHeight}px (from ${heights.length} cards)`);
+        setCardHeight(averageHeight);
+      }
+    }
+  }, [cardHeight]);
 
   // Virtual scrolling logic
   const calculateVisibleRange = useCallback(() => {
@@ -434,10 +462,34 @@ const GiftList: React.FC = () => {
     }
   }, [gifts.length, cardHeight, calculateVisibleRange]);
 
+  // Debounced effect to recalculate when card height changes
+  useEffect(() => {
+    if (gifts.length > 0) {
+      const timeoutId = setTimeout(() => {
+        const totalHeight = gifts.length * cardHeight;
+        setContainerHeight(totalHeight);
+        calculateVisibleRange();
+      }, 100); // Small delay to batch multiple height updates
+
+      return () => clearTimeout(timeoutId);
+    }
+  }, [cardHeight, gifts.length, calculateVisibleRange]);
+
   // Get visible gifts for rendering
   const visibleGifts = useMemo(() => {
     return gifts.slice(visibleRange.start, visibleRange.end + 1);
   }, [gifts, visibleRange]);
+
+  // Periodically measure average card height for accuracy
+  useEffect(() => {
+    if (visibleGifts.length > 0 && cardRefs.current.size > 0) {
+      const intervalId = setInterval(() => {
+        measureAverageCardHeight();
+      }, 2000); // Measure every 2 seconds
+
+      return () => clearInterval(intervalId);
+    }
+  }, [visibleGifts.length, measureAverageCardHeight]);
 
   // Calculate top offset for virtual scrolling
   const getCardTop = useCallback((index: number) => {
