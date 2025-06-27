@@ -109,7 +109,7 @@ const GiftList: React.FC = () => {
 
   // Virtual scrolling state for infinite scrolling with absolute positioning
   const [visibleRange, setVisibleRange] = useState<{ start: number; end: number }>({ start: 0, end: 50 });
-  const [cardHeight, setCardHeight] = useState<number>(300); // Estimated card height
+  const [cardHeight, setCardHeight] = useState<number>(750); // Estimated card height
   const [containerHeight, setContainerHeight] = useState<number>(0);
   const containerRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
