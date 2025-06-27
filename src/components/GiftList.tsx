@@ -95,10 +95,12 @@ const GiftList: React.FC = () => {
   // Zoom level for card sizing
   const [zoomLevel, setZoomLevel] = useState<number>(500); // Default 500px width
 
-  // Progressive loading state
-  const [displayedGifts, setDisplayedGifts] = useState<Gift[]>([]);
-  const [isLoadingComplete, setIsLoadingComplete] = useState<boolean>(false);
-  const MAX_CARDS_TO_DISPLAY = 2000;
+  // Virtual scrolling state for infinite scrolling with absolute positioning
+  const [visibleRange, setVisibleRange] = useState<{ start: number; end: number }>({ start: 0, end: 50 });
+  const [cardHeight, setCardHeight] = useState<number>(300); // Estimated card height
+  const [containerHeight, setContainerHeight] = useState<number>(0);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
 
   // Jump to card functionality
   const [jumpToIndex, setJumpToIndex] = useState<string>('');
@@ -341,58 +343,6 @@ const GiftList: React.FC = () => {
     };
   }, [loading]);
 
-  // Progressive loading effect
-  useEffect(() => {
-    // Only reset if we're actually loading and have no gifts
-    if (gifts.length === 0 && loading) {
-      setDisplayedGifts([]);
-      setIsLoadingComplete(false);
-      return;
-    }
-
-    // If we have gifts but no displayed gifts yet, start progressive loading
-    if (gifts.length > 0 && displayedGifts.length === 0) {
-      const timer = setTimeout(() => {
-        // Load a larger initial batch to show more gifts quickly
-        setDisplayedGifts(gifts.slice(0, Math.min(100, gifts.length)));
-      }, 50); // Shorter delay for faster initial loading
-      return () => clearTimeout(timer);
-    }
-
-    const targetCount = Math.min(gifts.length, MAX_CARDS_TO_DISPLAY);
-
-    if (displayedGifts.length < targetCount) {
-      const timer = setTimeout(() => {
-        setDisplayedGifts(prev => {
-          // Use larger batches to load all gifts more quickly
-          const newCount = Math.min(prev.length + 100, targetCount);
-          return gifts.slice(0, newCount);
-        });
-      }, 50); // Shorter delay for faster loading
-
-      return () => clearTimeout(timer);
-    } else if (displayedGifts.length === targetCount && !isLoadingComplete && !nextLink) {
-      // Only set complete when we've displayed all loaded gifts AND there are no more to load from API
-      setIsLoadingComplete(true);
-    }
-  }, [gifts, displayedGifts.length, isLoadingComplete, nextLink, loading]);
-
-  // Debounced card count for smoother display
-  const [debouncedDisplayedCount, setDebouncedDisplayedCount] = useState<number>(0);
-
-  useEffect(() => {
-    // Don't update the debounced count if we're loading and have no displayed gifts yet
-    if (loading && displayedGifts.length === 0) {
-      return;
-    }
-
-    const timer = setTimeout(() => {
-      setDebouncedDisplayedCount(displayedGifts.length);
-    }, 200); // Debounce the count updates
-
-    return () => clearTimeout(timer);
-  }, [displayedGifts.length, loading]);
-
   // Jump to specific card index
   const handleJumpToCard = useCallback((index: number): void => {
     const cardElement = cardRefs.current.get(index);
@@ -419,7 +369,7 @@ const GiftList: React.FC = () => {
   const handleJumpToSubmit = useCallback((e: React.FormEvent): void => {
     e.preventDefault();
     const index = parseInt(jumpToIndex) - 1; // Convert to 0-based index
-    const maxIndex = displayedGifts.length - 1;
+    const maxIndex = gifts.length - 1;
 
     if (isNaN(index) || index < 0) {
       alert(t('giftList.jumpToCard.invalidNumber'));
@@ -433,7 +383,7 @@ const GiftList: React.FC = () => {
 
     handleJumpToCard(index);
     setJumpToIndex(''); // Clear the input
-  }, [jumpToIndex, displayedGifts.length, handleJumpToCard, t]);
+  }, [jumpToIndex, gifts.length, handleJumpToCard, t]);
 
   // Register card ref
   const registerCardRef = useCallback((index: number, element: HTMLDivElement | null): void => {
@@ -443,6 +393,56 @@ const GiftList: React.FC = () => {
       cardRefs.current.delete(index);
     }
   }, []);
+
+  // Virtual scrolling logic
+  const calculateVisibleRange = useCallback(() => {
+    if (!scrollContainerRef.current || !containerRef.current) return;
+
+    const scrollTop = scrollContainerRef.current.scrollTop;
+    const viewportHeight = containerRef.current.clientHeight;
+    const buffer = 5; // Number of cards to render outside viewport
+
+    const startIndex = Math.max(0, Math.floor(scrollTop / cardHeight) - buffer);
+    const endIndex = Math.min(
+      gifts.length - 1,
+      Math.ceil((scrollTop + viewportHeight) / cardHeight) + buffer
+    );
+
+    setVisibleRange({ start: startIndex, end: endIndex });
+  }, [cardHeight, gifts.length]);
+
+  // Handle scroll events for virtual scrolling
+  const handleScroll = useCallback(() => {
+    requestAnimationFrame(calculateVisibleRange);
+  }, [calculateVisibleRange]);
+
+  // Set up scroll listener
+  useEffect(() => {
+    const scrollContainer = scrollContainerRef.current;
+    if (scrollContainer) {
+      scrollContainer.addEventListener('scroll', handleScroll, { passive: true });
+      return () => scrollContainer.removeEventListener('scroll', handleScroll);
+    }
+  }, [handleScroll]);
+
+  // Calculate container height and update visible range when gifts change
+  useEffect(() => {
+    if (containerRef.current && gifts.length > 0) {
+      const totalHeight = gifts.length * cardHeight;
+      setContainerHeight(totalHeight);
+      calculateVisibleRange();
+    }
+  }, [gifts.length, cardHeight, calculateVisibleRange]);
+
+  // Get visible gifts for rendering
+  const visibleGifts = useMemo(() => {
+    return gifts.slice(visibleRange.start, visibleRange.end + 1);
+  }, [gifts, visibleRange]);
+
+  // Calculate top offset for virtual scrolling
+  const getCardTop = useCallback((index: number) => {
+    return index * cardHeight;
+  }, [cardHeight]);
 
   if (loading) {
     return (
@@ -629,19 +629,9 @@ const GiftList: React.FC = () => {
           <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
             <span style={{ fontSize: "16px" }}>📊</span>
             <span style={{ fontWeight: "bold" }}>
-              Showing {debouncedDisplayedCount.toLocaleString()} of {totalCount.toLocaleString()} cards
+              Showing {gifts.length.toLocaleString()} of {totalCount.toLocaleString()} cards
             </span>
-            {debouncedDisplayedCount < totalCount && debouncedDisplayedCount < MAX_CARDS_TO_DISPLAY && (
-              <span style={{ fontSize: "14px", color: "#1976d2" }}>
-                (Loading more...)
-              </span>
-            )}
           </div>
-          {isLoadingComplete && (
-            <span style={{ fontSize: "14px", color: "#2e7d32", fontWeight: "bold" }}>
-              ✅ All cards loaded
-            </span>
-          )}
         </div>
       )}
 
@@ -817,7 +807,7 @@ const GiftList: React.FC = () => {
               onChange={(e) => setJumpToIndex(e.target.value)}
               placeholder={t('giftList.jumpToCard.placeholder')}
               min="1"
-              max={displayedGifts.length}
+              max={gifts.length}
               style={{
                 padding: "6px 10px",
                 border: "1px solid #ced4da",
@@ -838,7 +828,7 @@ const GiftList: React.FC = () => {
                 fontSize: "12px",
                 fontWeight: "bold"
               }}
-              title={`${t('giftList.jumpToCard.label')} (1-${displayedGifts.length})`}
+              title={`${t('giftList.jumpToCard.label')} (1-${gifts.length})`}
             >
               🎯
             </button>
@@ -851,103 +841,128 @@ const GiftList: React.FC = () => {
           <p>{t('giftList.noGifts')}</p>
         </div>
       ) : (
-        // Normal Card View
+        // Virtual Scrolling Card View
         <>
-          {/* Cards Grid */}
-          <div className="gifts-grid" style={{
-            display: "block",
-            marginBottom: "20px",
-            minHeight: "400px",
-            fontSize: 0 // Remove whitespace between inline-block elements
-          }}>
-            {displayedGifts.map((gift, index) => (
-              <div
-                key={gift.id}
-                ref={(el) => registerCardRef(index, el)}
-                className="gift-card-wrapper"
-                style={{
-                  display: "inline-block",
-                  width: `${zoomLevel}px`,
-                  margin: "10px",
-                  verticalAlign: "top",
-                  fontSize: "14px" // Restore font size
-                }}
-              >
-                <GiftCard
-                  key={gift.id}
-                  gift={gift}
-                  expandedRows={expandedRows}
-                  onToggleExpansion={memoizedToggleRowExpansion}
-                  onHandlePdfLoaded={handlePdfLoaded}
-                  onHandleImageError={handleImageError}
-                  formatCurrency={formatCurrency}
-                  formatDate={formatDate}
-                  zoomLevel={zoomLevel}
-                  cardNumber={index + 1}
-                  totalCount={totalCount}
-                />
-              </div>
-            ))}
-          </div>
-
-          {/* Completion Message */}
-          {isLoadingComplete && !nextLink && (
-            <div style={{
-              textAlign: "center",
-              marginTop: "20px",
-              padding: "16px",
-              backgroundColor: "#d4edda",
-              border: "1px solid #c3e6cb",
+          {/* Virtual Scrolling Container */}
+          <div
+            ref={containerRef}
+            style={{
+              height: "70vh",
+              overflow: "hidden",
+              position: "relative",
+              border: "1px solid #dee2e6",
               borderRadius: "8px",
-              color: "#155724"
-            }}>
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "8px" }}>
-                <span style={{ fontSize: "18px" }}>✅</span>
-                <span style={{ fontWeight: "bold", fontSize: "16px" }}>
-                  All cards have been displayed
-                </span>
-              </div>
-              <p style={{ margin: "8px 0 0", fontSize: "14px", color: "#0f5132" }}>
-                Showing {displayedGifts.length.toLocaleString()} of {totalCount.toLocaleString()} total cards
-              </p>
-            </div>
-          )}
-
-          {/* Load More Trigger - Only show if not complete and there are more cards to load */}
-          {nextLink && !loading && displayedGifts.length < totalCount && (
+              backgroundColor: "#f8f9fa"
+            }}
+          >
+            {/* Scrollable container with total height */}
             <div
-              ref={loadMoreTriggerRef}
+              ref={scrollContainerRef}
               style={{
-                textAlign: "center",
-                marginTop: "20px",
-                padding: "20px",
-                minHeight: "60px",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center"
+                height: "100%",
+                overflow: "auto",
+                position: "relative"
               }}
             >
-              {loadingMore ? (
-                <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+              {/* Virtual content with total height */}
+              <div style={{
+                height: `${containerHeight}px`,
+                position: "relative",
+                width: "100%"
+              }}>
+                {/* Only render visible cards with absolute positioning */}
+                {visibleGifts.map((gift, visibleIndex) => {
+                  const actualIndex = visibleRange.start + visibleIndex;
+                  return (
+                    <div
+                      key={gift.id}
+                      ref={(el) => registerCardRef(actualIndex, el)}
+                      className="gift-card-wrapper"
+                      style={{
+                        position: "absolute",
+                        top: `${getCardTop(actualIndex)}px`,
+                        left: "10px",
+                        right: "10px",
+                        width: `${zoomLevel}px`,
+                        height: `${cardHeight}px`,
+                        margin: "0 auto"
+                      }}
+                    >
+                      <GiftCard
+                        key={gift.id}
+                        gift={gift}
+                        expandedRows={expandedRows}
+                        onToggleExpansion={memoizedToggleRowExpansion}
+                        onHandlePdfLoaded={handlePdfLoaded}
+                        onHandleImageError={handleImageError}
+                        formatCurrency={formatCurrency}
+                        formatDate={formatDate}
+                        zoomLevel={zoomLevel}
+                        cardNumber={actualIndex + 1}
+                        totalCount={totalCount}
+                      />
+                    </div>
+                  );
+                })}
+
+                {/* Load More Trigger - Positioned at the bottom for infinite scrolling */}
+                {nextLink && !loading && gifts.length < totalCount && (
                   <div
+                    ref={loadMoreTriggerRef}
                     style={{
-                      width: "20px",
-                      height: "20px",
-                      border: "2px solid #f3f3f3",
-                      borderTop: "2px solid #007bff",
-                      borderRadius: "50%",
-                      animation: "spin 1s linear infinite"
+                      position: "absolute",
+                      top: `${getCardTop(gifts.length)}px`,
+                      left: "50%",
+                      transform: "translateX(-50%)",
+                      padding: "20px",
+                      minHeight: "60px",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      backgroundColor: "rgba(255, 255, 255, 0.9)",
+                      borderRadius: "8px",
+                      border: "1px solid #dee2e6"
                     }}
-                  />
-                  <span>{t('giftList.loadingMore')}</span>
-                </div>
-              ) : (
-                <span style={{ color: "#666", fontSize: "14px" }}>
-                  {t('giftList.scrollForMore')}
-                </span>
-              )}
+                  >
+                    {loadingMore ? (
+                      <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                        <div
+                          style={{
+                            width: "20px",
+                            height: "20px",
+                            border: "2px solid #f3f3f3",
+                            borderTop: "2px solid #007bff",
+                            borderRadius: "50%",
+                            animation: "spin 1s linear infinite"
+                          }}
+                        />
+                        <span>{t('giftList.loadingMore')}</span>
+                      </div>
+                    ) : (
+                      <span style={{ color: "#666", fontSize: "14px" }}>
+                        {t('giftList.scrollForMore')}
+                      </span>
+                    )}
+                  </div>
+                )}
+              </div>
             </div>
-          )}
+          </div>
+
+          {/* Virtual Scrolling Info */}
+          <div style={{
+            marginTop: "10px",
+            padding: "8px 12px",
+            backgroundColor: "#e3f2fd",
+            border: "1px solid #bbdefb",
+            borderRadius: "4px",
+            fontSize: "12px",
+            color: "#1565c0",
+            textAlign: "center"
+          }}>
+            Virtual scrolling: Showing cards {visibleRange.start + 1}-{visibleRange.end + 1} of {gifts.length}
+            (Card height: {cardHeight}px, Total height: {Math.round(containerHeight / 1000)}k pixels)
+          </div>
         </>
       )}
 
@@ -965,16 +980,11 @@ const GiftList: React.FC = () => {
       {/* PDF Download Status */}
       <PdfDownloadStatus showDetails={true} />
 
-      {/* CSS Styles for responsive grid */}
+      {/* CSS Styles for virtual scrolling */}
       <style>{`
         @keyframes spin {
           0% { transform: rotate(0deg); }
           100% { transform: rotate(360deg); }
-        }
-        
-        .gifts-grid {
-          text-align: center;
-          padding: 10px;
         }
         
         .gift-card-wrapper {
@@ -983,10 +993,12 @@ const GiftList: React.FC = () => {
           will-change: transform;
           opacity: 1;
           animation: fadeIn 0.3s ease-in-out;
+          box-sizing: border-box;
         }
         
         .gift-card-wrapper:hover {
           transform: translateY(-2px) translateZ(0);
+          z-index: 10;
         }
         
         .gift-card {
@@ -996,6 +1008,9 @@ const GiftList: React.FC = () => {
           min-height: 200px;
           width: 100%;
           box-sizing: border-box;
+          background: white;
+          border-radius: 8px;
+          box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
         }
         
         .gift-card:hover {
@@ -1043,6 +1058,11 @@ const GiftList: React.FC = () => {
             opacity: 1;
             transform: translateY(0);
           }
+        }
+        
+        /* Virtual scrolling optimizations */
+        .gift-card-wrapper {
+          contain: layout style paint;
         }
         
         /* Print styles for complete view */
