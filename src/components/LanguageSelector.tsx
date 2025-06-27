@@ -1,8 +1,9 @@
-import React, { useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 
 const LanguageSelector: React.FC = () => {
   const { i18n } = useTranslation();
+  const [forceUpdate, setForceUpdate] = useState(0);
 
   const languages = [
     { code: 'en', name: 'English', flag: '🇺🇸' },
@@ -22,6 +23,9 @@ const LanguageSelector: React.FC = () => {
       // Force a re-render by updating localStorage
       localStorage.setItem('i18nextLng', languageCode);
 
+      // Force component re-render
+      setForceUpdate(prev => prev + 1);
+
       // Show a brief visual feedback
       const button = document.querySelector(`[data-lang="${languageCode}"]`) as HTMLElement;
       if (button) {
@@ -39,6 +43,7 @@ const LanguageSelector: React.FC = () => {
   useEffect(() => {
     const handleLanguageChanged = (lng: string) => {
       console.log('LanguageSelector: Language changed to:', lng);
+      setForceUpdate(prev => prev + 1);
     };
 
     i18n.on('languageChanged', handleLanguageChanged);
@@ -51,6 +56,7 @@ const LanguageSelector: React.FC = () => {
   console.log('LanguageSelector: Current language:', i18n.language);
   console.log('LanguageSelector: Available languages:', i18n.languages);
   console.log('LanguageSelector: Is initialized:', i18n.isInitialized);
+  console.log('LanguageSelector: Force update count:', forceUpdate);
 
   const containerStyle: React.CSSProperties = {
     position: 'fixed',
@@ -111,12 +117,13 @@ const LanguageSelector: React.FC = () => {
         padding: '5px',
         fontSize: '10px',
         borderRadius: '4px',
-        display: 'none' // Set to 'block' for debugging
+        display: 'block' // Temporarily enable for debugging
       }}>
         Current: {i18n.language}<br />
         Initialized: {i18n.isInitialized ? 'Yes' : 'No'}<br />
         Available: {i18n.languages?.join(', ')}<br />
-        Test: {i18n.t('common.loading')}
+        Test: {i18n.t('common.loading')}<br />
+        Updates: {forceUpdate}
       </div>
     </div>
   );
