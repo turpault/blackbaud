@@ -4,11 +4,10 @@ import type { ConstituentInfo as ConstituentInfoType } from '../types/auth';
 
 interface ConstituentInfoProps {
   constituentId: string | undefined;
-  onQueueConstituentLoad: (constituentId: string) => void;
   isScrolling?: boolean;
 }
 
-const ConstituentInfo: React.FC<ConstituentInfoProps> = React.memo(({ constituentId, onQueueConstituentLoad, isScrolling = false }) => {
+const ConstituentInfo: React.FC<ConstituentInfoProps> = React.memo(({ constituentId, isScrolling = false }) => {
   const [constituent, setConstituent] = useState<ConstituentInfoType | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(false);
 
@@ -35,7 +34,7 @@ const ConstituentInfo: React.FC<ConstituentInfoProps> = React.memo(({ constituen
   }, [constituentId, isScrolling]); // Add isScrolling to dependencies
 
   useEffect(() => {
-    if (!constituentId || constituent?.id !== constituentId) {
+    if (!constituentId || constituent && constituent.id !== constituentId) {
       setConstituent(null);
     }
   }, [constituentId, constituent]);

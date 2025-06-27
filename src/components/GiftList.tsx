@@ -88,12 +88,10 @@ const GiftList: React.FC = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const [gifts, setGifts] = useState<Gift[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
-  const [loadingMore, setLoadingMore] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
   const [sortColumn, setSortColumn] = useState<string | null>(searchParams.get('sortColumn'));
   const [sortDirection, setSortDirection] = useState<SortDirection>(searchParams.get('sortDirection') as SortDirection);
-  const [nextLink, setNextLink] = useState<string | null>(null);
   const [totalCount, setTotalCount] = useState<number>(0);
   const [cachedLists, setCachedLists] = useState<Record<string, { name: string; description?: string }>>({});
 
@@ -160,20 +158,14 @@ const GiftList: React.FC = () => {
   // Use debounced filters for API calls
   const filters = debouncedFilters;
 
-  const [currentOffset, setCurrentOffset] = useState<number>(0);
   const [backgroundLoading, setBackgroundLoading] = useState<boolean>(false);
   const [backgroundProgress, setBackgroundProgress] = useState<{ loaded: number; total: number }>({ loaded: 0, total: 0 });
 
   // Fetch gifts function
   const fetchGifts = useCallback(async (reset: boolean = true): Promise<void> => {
-    if (reset) {
-      setLoading(true);
-      setError(null);
-      setGifts([]);
-      setNextLink(null);
-    } else {
-      setLoadingMore(true);
-    }
+    setLoading(true);
+    setError(null);
+    setGifts([]);
 
     try {
       // Convert string filters to proper types for API
@@ -204,13 +196,7 @@ const GiftList: React.FC = () => {
         (errorMsg) => setError(errorMsg)
       );
 
-      if (reset) {
-        setGifts(response.value || []);
-      } else {
-        setGifts(prev => [...prev, ...(response.value || [])]);
-      }
-
-      setNextLink(response.next_link || null);
+      setGifts(response.value || []);
       setTotalCount(response.count || 0);
 
       // Auto-start background loading if there are more gifts available
@@ -221,54 +207,9 @@ const GiftList: React.FC = () => {
     } catch (err: any) {
       console.error("Failed to fetch gifts:", err);
     } finally {
-      if (reset) {
-        setLoading(false);
-      } else {
-        setLoadingMore(false);
-      }
+      setLoading(false);
     }
   }, [filters]);
-
-  // Load more gifts function
-  const loadMoreGifts = useCallback(async (): Promise<void> => {
-    if (loadingMore) return;
-    setLoadingMore(true);
-    try {
-      // Convert string filters to proper types for API
-      const apiFilters = {
-        listId: filters.listId || undefined,
-        listType: filters.listType || undefined,
-        giftType: filters.giftType || undefined,
-        giftStatus: filters.giftStatus || undefined,
-        dateFrom: filters.dateFrom || undefined,
-        dateTo: filters.dateTo || undefined,
-        amountFrom: filters.amountFrom ? parseFloat(filters.amountFrom) : undefined,
-        amountTo: filters.amountTo ? parseFloat(filters.amountTo) : undefined,
-        constituentId: filters.constituentId || undefined,
-        designation: filters.designation || undefined,
-        campaign: filters.campaign || undefined,
-        appeal: filters.appeal || undefined,
-        subtype: filters.subtype || undefined,
-        acknowledgmentStatus: filters.acknowledgmentStatus || undefined,
-        receiptStatus: filters.receiptStatus || undefined,
-        isAnonymous: filters.isAnonymous ? filters.isAnonymous === 'true' : undefined,
-        sortBy: filters.sortBy || undefined,
-        sortDirection: filters.sortDirection || undefined
-      };
-
-      const response: GiftListResponse = await authService.executeQuery(
-        () => authService.getGifts(1000, currentOffset, apiFilters),
-        'loading more gifts'
-      );
-      setGifts(prev => [...prev, ...(response.value || [])]);
-      setTotalCount(response.count || 0);
-      setCurrentOffset(prev => prev + 1000);
-    } catch (err: any) {
-      console.error("Failed to load more gifts:", err);
-    } finally {
-      setLoadingMore(false);
-    }
-  }, [loadingMore, currentOffset, filters]);
 
   // Load all gifts in background
   const loadAllGiftsInBackground = useCallback(async (): Promise<void> => {
@@ -462,35 +403,6 @@ const GiftList: React.FC = () => {
     setImmediateFilters(newFilters);
     updateUrlParams(newFilters, sortColumn, sortDirection);
   };
-
-  // Intersection observer for infinite scroll and PDF loading
-  const observerRef = useRef<IntersectionObserver | null>(null);
-  const loadMoreTriggerRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    // Set up intersection observer for infinite scroll
-    if (loadMoreTriggerRef.current && nextLink && !loadingMore) {
-      observerRef.current = new IntersectionObserver(
-        (entries) => {
-          entries.forEach((entry) => {
-            if (entry.isIntersecting && nextLink && !loadingMore) {
-              console.log('🔄 Load more trigger visible, loading more gifts...');
-              loadMoreGifts();
-            }
-          });
-        },
-        { threshold: 0.1, rootMargin: '100px' }
-      );
-
-      observerRef.current.observe(loadMoreTriggerRef.current);
-    }
-
-    return () => {
-      if (observerRef.current) {
-        observerRef.current.disconnect();
-      }
-    };
-  }, [nextLink, loadingMore, loadMoreGifts]);
 
   // Load list name when filtering by list
   const loadListName = useCallback(async (listId: string): Promise<void> => {
@@ -881,8 +793,7 @@ const GiftList: React.FC = () => {
     authService.clearGiftCache();
     console.log('Cleared gift cache before refresh');
 
-    // Reset offset and fetch fresh data
-    setCurrentOffset(0);
+    // Reset and fetch fresh data
     await fetchGifts(true);
   }, [fetchGifts]);
 
@@ -1499,47 +1410,6 @@ const GiftList: React.FC = () => {
                     </div>
                   );
                 })}
-
-                {/* Load More Trigger - Positioned at the bottom for infinite scrolling */}
-                {nextLink && !loading && gifts.length < totalCount && (
-                  <div
-                    ref={loadMoreTriggerRef}
-                    style={{
-                      position: "absolute",
-                      top: `${getCardGridPosition(gifts.length).top}px`,
-                      left: "50%",
-                      transform: "translateX(-50%)",
-                      padding: "20px",
-                      minHeight: "60px",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      backgroundColor: "rgba(255, 255, 255, 0.9)",
-                      borderRadius: "8px",
-                      border: "1px solid #dee2e6"
-                    }}
-                  >
-                    {loadingMore ? (
-                      <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                        <div
-                          style={{
-                            width: "20px",
-                            height: "20px",
-                            border: "2px solid #f3f3f3",
-                            borderTop: "2px solid #007bff",
-                            borderRadius: "50%",
-                            animation: "spin 1s linear infinite"
-                          }}
-                        />
-                        <span>{t('giftList.loadingMore')}</span>
-                      </div>
-                    ) : (
-                      <span style={{ color: "#666", fontSize: "14px" }}>
-                        {t('giftList.scrollForMore')}
-                      </span>
-                    )}
-                  </div>
-                )}
               </div>
             </div>
           </div>

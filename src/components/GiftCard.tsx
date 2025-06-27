@@ -116,7 +116,6 @@ const GiftCard: React.FC<GiftCardProps> = React.memo(({
             }}>
               <ConstituentInfo
                 constituentId={gift.constituent_id}
-                onQueueConstituentLoad={() => { }} // Not needed anymore as component handles its own loading
                 isScrolling={isScrolling}
               />
             </h3>
