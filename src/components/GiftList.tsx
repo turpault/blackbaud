@@ -486,27 +486,42 @@ const GiftList: React.FC = () => {
     if (!listId || cachedLists[listId]) return;
 
     try {
-      console.log(`📋 Loading list name for ${listId}`);
+      console.log(`📋 Loading list name for ${listId} from cached lists`);
+
+      // Get all lists and find the one with matching ID
       const response = await authService.executeQuery(
-        () => authService.getList(listId),
-        `fetching list ${listId}`
+        () => authService.getLists(1000), // Get a large number to ensure we find the list
+        'fetching lists to find list name'
       );
 
-      if (response) {
-        setCachedLists(prev => ({
-          ...prev,
-          [listId]: {
-            name: response.name || response.title || 'Unknown List',
-            description: response.description
-          }
-        }));
+      if (response && response.value && Array.isArray(response.value)) {
+        const list = response.value.find((l: any) => l.id === listId);
+        if (list) {
+          setCachedLists(prev => ({
+            ...prev,
+            [listId]: {
+              name: list.name || list.title || 'Unknown List',
+              description: list.description
+            }
+          }));
+          console.log(`✅ Found list name for ${listId}: ${list.name}`);
+        } else {
+          console.warn(`⚠️ List ${listId} not found in cached lists`);
+          setCachedLists(prev => ({
+            ...prev,
+            [listId]: {
+              name: `List ${listId}`,
+              description: undefined
+            }
+          }));
+        }
       }
     } catch (error) {
       console.error(`❌ Failed to load list name for ${listId}:`, error);
       setCachedLists(prev => ({
         ...prev,
         [listId]: {
-          name: 'Unknown List',
+          name: `List ${listId}`,
           description: undefined
         }
       }));

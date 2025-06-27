@@ -752,22 +752,11 @@ class AuthService {
     expirationMs: 6000000, // 100 minutes
     keyGenerator: (limit: number, listType?: string) => `limit_${limit}_type_${listType || 'none'}`
   })
-  async getLists(limit: number = 50, listType?: string): Promise<any> {
+  async getLists(limit: number = 500, listType?: string): Promise<any> {
     let url = `/list/v1/lists?limit=${limit}`;
     if (listType) {
       url += `&list_type=${encodeURIComponent(listType)}`;
     }
-    return this.apiRequest(url);
-  }
-
-  // Get a single list by ID
-  @cache({ 
-    keyPrefix: 'getList', 
-    expirationMs: 24*60*60*1000, // 1 day
-    keyGenerator: (listId: string) => `${listId}`
-  })
-  async getList(listId: string): Promise<any> {
-    const url = `/list/v1/lists/${listId}`;
     return this.apiRequest(url);
   }
 
