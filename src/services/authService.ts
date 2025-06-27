@@ -1,7 +1,7 @@
 import axios, { AxiosRequestConfig, AxiosResponse } from 'axios';
 import { cache } from '../utils/cacheDecorator';
 import { withConcurrencyLimit } from '../utils/concurrencyLimiter';
-import { constituentCacheUtils, giftCacheUtils } from '../utils/database';
+import { constituentCacheUtils, giftCacheUtils, cacheUtils } from '../utils/database';
 import { 
   OAuthSessionResponse, 
   SessionInfo, 
@@ -757,6 +757,12 @@ class AuthService {
 
   // Get constituent information by ID with caching
   @withConcurrencyLimit({maxConcurrent: 1})
+  @cache({ 
+    keyPrefix: 'getConstituent', 
+    expirationMs: 30*24*60*60*1000, // 30 days
+    keyGenerator: (constituentId: string) => `${constituentId}`,
+    debug: true // Enable debug logging to track cache operations
+  })
   async getConstituent(constituentId: string): Promise<ConstituentInfo | null> {
     // Check if there's already a pending request for this constituent
     const promiseKey = `constituent_${constituentId}`;
@@ -772,15 +778,6 @@ class AuthService {
     // Create new promise for this constituent
     constituentPromise = (async () => {
       try {
-        // First, try to get from cache
-        const cachedData = await constituentCacheUtils.get(constituentId);
-        if (cachedData) {
-          console.log(`💾 Cache hit for constituent ${constituentId}`);
-          return cachedData;
-        }
-        
-        console.log(`📡 Cache miss for constituent ${constituentId}, fetching from API`);
-        
         const response = await this.apiRequest(`/constituent/v1/constituents/${constituentId}`);
         console.log(`📡 Raw API response for ${constituentId}:`, response);
         
@@ -810,15 +807,6 @@ class AuthService {
           return null;
         }
         
-        // Cache the constituent data
-        try {
-          await constituentCacheUtils.set(constituentId, constituentData, 30*24*60*60*1000); // 30 days
-          console.log(`💾 Successfully cached constituent ${constituentId} to local database`);
-        } catch (cacheError) {
-          console.warn(`⚠️ Failed to cache constituent ${constituentId}:`, cacheError);
-          // Don't fail the request if caching fails
-        }
-        
         // Additional logging to track successful constituent data
         console.log(`💾 Constituent ${constituentId} ready for caching:`, {
           id: constituentData.id,
@@ -846,16 +834,24 @@ class AuthService {
 
   // Clear constituent cache
   clearConstituentCache(constituentId?: string): void {
-    // Clear from IndexedDB
-    constituentCacheUtils.delete(constituentId);
+    // Clear from general cache (used by @cache decorator)
+    if (constituentId) {
+      const cacheKey = `getConstituent_${constituentId}`;
+      cacheUtils.delete(cacheKey);
+      console.log(`Cleared cache for constituent ${constituentId} with key: ${cacheKey}`);
+    } else {
+      // Clear all cache entries with getConstituent prefix
+      cacheUtils.clear();
+      console.log(`Cleared all cache entries`);
+    }
     
     // Clear memoized promises for this constituent
     if (constituentId) {
       const promiseKeysToDelete = Array.from(this.constituentPromises.keys())
-        .filter(key => key.startsWith(`${constituentId}_`));
+        .filter(key => key.startsWith(`constituent_${constituentId}`));
       promiseKeysToDelete.forEach(key => this.constituentPromises.delete(key));
       
-      console.log(`Cleared cache and ${promiseKeysToDelete.length} memoized promises for constituent ${constituentId}`);
+      console.log(`Cleared ${promiseKeysToDelete.length} memoized promises for constituent ${constituentId}`);
     } else {
       // Clear all memoized promises
       const promiseCount = this.constituentPromises.size;
