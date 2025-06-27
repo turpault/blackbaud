@@ -691,6 +691,11 @@ class AuthService {
   }
 
   // Get a single list by ID
+  @cache({ 
+    keyPrefix: 'getList', 
+    expirationMs: 24*60*60*1000, // 1 day
+    keyGenerator: (listId: string) => `${listId}`
+  })
   async getList(listId: string): Promise<any> {
     const url = `/list/v1/lists/${listId}`;
     return this.apiRequest(url);
@@ -710,7 +715,7 @@ class AuthService {
   // Get constituent information by ID with caching
   @cache({ 
     keyPrefix: 'getConstituent', 
-    expirationMs: 24*60*60*1000, // 1 day
+    expirationMs: 30*24*60*60*1000, // 30 days
     keyGenerator: (constituentId: string) => `${constituentId}`
   })
   async getConstituent(constituentId: string): Promise<ConstituentInfo | null> {

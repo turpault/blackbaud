@@ -260,8 +260,8 @@ const Lists: React.FC = () => {
   };
 
   const handleViewGifts = (listId: string): void => {
-    // Navigate to gifts tab with list_id filter
-    navigate(`/dashboard/gifts?list_id=${encodeURIComponent(listId)}`);
+    // Navigate to gifts tab with listId filter
+    navigate(`/dashboard/gifts?listId=${encodeURIComponent(listId)}`);
   };
 
   const handleRefresh = useCallback(async (): Promise<void> => {
