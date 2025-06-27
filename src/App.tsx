@@ -72,6 +72,14 @@ const AppContent: React.FC = () => {
       try {
         const session = await authService.checkAuthentication();
         setSessionInfo(session);
+
+        // If user is authenticated, check for saved state to restore
+        if (session.authenticated) {
+          // Small delay to ensure app is fully loaded before restoring state
+          setTimeout(() => {
+            authService.restoreStateAfterAuth();
+          }, 100);
+        }
       } catch (error) {
         console.error('Failed to check authentication:', error);
         setSessionInfo({ authenticated: false });

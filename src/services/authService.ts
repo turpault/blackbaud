@@ -328,8 +328,59 @@ class AuthService {
   // Initiate login by redirecting to the protected route
   // The proxy server will handle OAuth2 redirect automatically
   initiateLogin(): void {
+    // Save current application state to URL before redirecting
+    this.saveCurrentStateToUrl();
+    
     // Simply redirect to the app root - proxy server will handle OAuth2
     window.location.href = '/blackbaud/';
+  }
+
+  // Save current application state to URL for restoration after re-authentication
+  private saveCurrentStateToUrl(): void {
+    try {
+      const currentState = {
+        pathname: window.location.pathname,
+        search: window.location.search,
+        hash: window.location.hash,
+        timestamp: Date.now()
+      };
+      
+      // Store state in sessionStorage for restoration
+      sessionStorage.setItem('blackbaud_pre_auth_state', JSON.stringify(currentState));
+      console.log('💾 Saved pre-authentication state:', currentState);
+    } catch (error) {
+      console.warn('Failed to save pre-authentication state:', error);
+    }
+  }
+
+  // Restore application state after successful re-authentication
+  restoreStateAfterAuth(): void {
+    try {
+      const savedState = sessionStorage.getItem('blackbaud_pre_auth_state');
+      if (savedState) {
+        const state = JSON.parse(savedState);
+        const stateAge = Date.now() - state.timestamp;
+        
+        // Only restore state if it's less than 30 minutes old
+        if (stateAge < 30 * 60 * 1000) {
+          const targetUrl = `${state.pathname}${state.search}${state.hash}`;
+          console.log('🔄 Restoring pre-authentication state:', targetUrl);
+          
+          // Clear the saved state
+          sessionStorage.removeItem('blackbaud_pre_auth_state');
+          
+          // Navigate to the saved state
+          window.location.href = targetUrl;
+          return;
+        } else {
+          console.log('⏰ Pre-authentication state expired, not restoring');
+          sessionStorage.removeItem('blackbaud_pre_auth_state');
+        }
+      }
+    } catch (error) {
+      console.warn('Failed to restore pre-authentication state:', error);
+      sessionStorage.removeItem('blackbaud_pre_auth_state');
+    }
   }
 
   // Logout by calling the proxy server logout endpoint
@@ -404,7 +455,9 @@ class AuthService {
             console.error('Failed to refresh session and retry request:', retryError);
           }
           
-          // Authentication failed - redirect to login
+          // Authentication failed - save current state and redirect to login
+          console.log('🔐 Authentication failed, saving state and redirecting to login');
+          this.saveCurrentStateToUrl();
           throw new Error('Authentication expired - please log in again');
         }
         
@@ -716,7 +769,9 @@ class AuthService {
             console.error('Failed to refresh session and retry request:', retryError);
           }
           
-          // Authentication failed - redirect to login
+          // Authentication failed - save current state and redirect to login
+          console.log('🔐 Authentication failed, saving state and redirecting to login');
+          this.saveCurrentStateToUrl();
           throw new Error('Authentication expired - please log in again');
         }
         
