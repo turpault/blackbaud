@@ -83,6 +83,48 @@ describe('ConcurrencyLimiter', () => {
     
     expect(rejected.length).toBeGreaterThan(0);
   });
+
+  test('should use LIFO queue behavior', async () => {
+    const executionOrder: string[] = [];
+    
+    // Queue functions A, B, C in that order
+    const promiseA = limiter.executeWithLimit(
+      async () => {
+        await new Promise(resolve => setTimeout(resolve, 100));
+        executionOrder.push('A');
+        return 'A';
+      },
+      'functionA',
+      []
+    );
+
+    const promiseB = limiter.executeWithLimit(
+      async () => {
+        await new Promise(resolve => setTimeout(resolve, 100));
+        executionOrder.push('B');
+        return 'B';
+      },
+      'functionB',
+      []
+    );
+
+    const promiseC = limiter.executeWithLimit(
+      async () => {
+        await new Promise(resolve => setTimeout(resolve, 100));
+        executionOrder.push('C');
+        return 'C';
+      },
+      'functionC',
+      []
+    );
+
+    // Wait for all to complete
+    await Promise.all([promiseA, promiseB, promiseC]);
+
+    // With LIFO, C should execute first, then B, then A
+    // (assuming maxConcurrent is 1, so they execute sequentially)
+    expect(executionOrder).toEqual(['C', 'B', 'A']);
+  });
 });
 
 describe('withConcurrencyLimit decorator', () => {

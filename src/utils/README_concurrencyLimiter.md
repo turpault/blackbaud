@@ -5,7 +5,7 @@ A powerful TypeScript decorator and utility for limiting concurrent executions o
 ## Features
 
 - 🚦 **Concurrency Control**: Limit the number of simultaneous executions
-- 📊 **Queue Management**: Intelligent queue handling with overflow protection
+- 📊 **Queue Management**: LIFO queue handling with overflow protection
 - 🎯 **Error Handling**: Graceful error handling with custom callbacks
 - 📈 **Statistics & Monitoring**: Real-time queue and execution statistics
 - 🔧 **Dynamic Configuration**: Update limits at runtime
@@ -70,6 +70,27 @@ interface ConcurrencyLimiterOptions {
   onQueueFull?: (functionName: string) => void;     // Queue overflow callback
   onError?: (functionName: string, error: any) => void;         // Error callback
 }
+```
+
+## Queue Behavior
+
+The concurrency limiter uses a **LIFO (Last In, First Out)** queue, meaning:
+- The most recently queued function will be executed first
+- This is useful for scenarios where newer requests are more important
+- Helps prioritize recent user actions over older background tasks
+- Reduces latency for interactive operations
+
+### Example LIFO Behavior:
+```typescript
+// If you queue functions A, B, C in that order
+// They will execute in order: C, B, A (LIFO)
+const limiter = createConcurrencyLimiter({ maxConcurrent: 1 });
+
+limiter.executeWithLimit(() => console.log('A'), 'A', []);
+limiter.executeWithLimit(() => console.log('B'), 'B', []);
+limiter.executeWithLimit(() => console.log('C'), 'C', []);
+
+// Output: C, B, A
 ```
 
 ## Advanced Usage

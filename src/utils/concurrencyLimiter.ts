@@ -94,7 +94,7 @@ class ConcurrencyLimiter {
       return;
     }
 
-    const queuedFunction = this.queue.shift();
+    const queuedFunction = this.queue.pop();
     if (!queuedFunction) return;
 
     this.running.add(queuedFunction.id);
