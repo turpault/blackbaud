@@ -52,7 +52,16 @@ class AuthService {
                            error.response?.data?.error?.toLowerCase().includes('quota exceeded') ||
                            error.response?.data?.error_description?.toLowerCase().includes('quota exceeded');
         
-        // Only retry on quota errors, and only if we have attempts left
+        // Check specifically for 403 status (Blackbaud quota exceeded)
+        const is403Error = error.response?.status === 403 || error.status === 403;
+        
+        // Only retry on 429 errors, fail immediately on 403
+        if (is403Error) {
+          console.warn(`🚫 403 Quota Exceeded - No retry attempted, failing immediately`);
+          throw error;
+        }
+        
+        // Only retry on 429 errors, and only if we have attempts left
         if (!isQuotaError || attempt === maxRetries) {
           throw error;
         }
@@ -62,7 +71,7 @@ class AuthService {
         const jitter = Math.random() * 0.1 * backoffDelay; // 10% jitter
         const totalDelay = backoffDelay + jitter;
         
-        console.warn(`Quota exceeded (${error.response?.status || error.status}), retrying in ${Math.round(totalDelay)}ms... (attempt ${attempt + 1}/${maxRetries + 1})`);
+        console.warn(`429 Rate Limited, retrying in ${Math.round(totalDelay)}ms... (attempt ${attempt + 1}/${maxRetries + 1})`);
         
         // Wait before retrying
         await new Promise(resolve => setTimeout(resolve, totalDelay));
@@ -100,6 +109,10 @@ class AuthService {
                          error.response?.data?.error?.toLowerCase().includes('quota exceeded') ||
                          error.response?.data?.error_description?.toLowerCase().includes('quota exceeded');
       
+      // Check specifically for 403 vs 429 status
+      const is403Error = error.response?.status === 403 || error.status === 403;
+      const is429Error = error.response?.status === 429 || error.status === 429;
+      
       // Create user-friendly error message
       let errorMessage: string;
       let retryAfter: string | undefined;
@@ -118,15 +131,20 @@ class AuthService {
                     error.response?.data?.retryAfter ||
                     error.retryAfter;
         
-        if (retryAfter) {
+        if (is403Error) {
+          // 403 errors are permanent quota exceeded (no retry)
+          errorMessage = `🚫 API Quota Exceeded: You've reached the maximum daily/monthly API quota limit. This limit will reset at the next billing cycle.`;
+        } else if (is429Error && retryAfter) {
+          // 429 errors are temporary rate limits (with retry-after)
           const retrySeconds = parseInt(retryAfter);
           const retryMinutes = Math.ceil(retrySeconds / 60);
-          errorMessage = `🚫 API Quota Exceeded: You've reached the maximum number of API calls allowed. Please wait ${retryMinutes} minute${retryMinutes > 1 ? 's' : ''} before trying again.`;
+          errorMessage = `🚫 API Rate Limited: Too many requests. Please wait ${retryMinutes} minute${retryMinutes > 1 ? 's' : ''} before trying again.`;
         } else {
-          errorMessage = `🚫 API Quota Exceeded: You've reached the maximum number of API calls allowed while ${context}. Please wait a few minutes before trying again.`;
+          // Generic rate limit message
+          errorMessage = `🚫 API Rate Limited: Too many requests while ${context}. Please wait before trying again.`;
         }
 
-        // Notify global quota context if available
+        // Notify global quota context if available (for both 403 and 429)
         this.notifyQuotaExceeded(retryAfter);
       } else {
         errorMessage = error.message || `Failed to ${context}`;
