@@ -1,9 +1,8 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect } from "react";
 import { useTranslation } from "react-i18next";
 
 const LanguageSelector: React.FC = () => {
   const { i18n } = useTranslation();
-  const [forceUpdate, setForceUpdate] = useState(0);
 
   const languages = [
     { code: 'en', name: 'English', flag: '🇺🇸' },
@@ -15,9 +14,6 @@ const LanguageSelector: React.FC = () => {
     i18n.changeLanguage(languageCode).then(() => {
       // Force a re-render by updating localStorage
       localStorage.setItem('i18nextLng', languageCode);
-
-      // Force component re-render
-      setForceUpdate(prev => prev + 1);
 
       // Show a brief visual feedback
       const button = document.querySelector(`[data-lang="${languageCode}"]`) as HTMLElement;
@@ -35,7 +31,7 @@ const LanguageSelector: React.FC = () => {
   // Monitor language changes
   useEffect(() => {
     const handleLanguageChanged = (lng: string) => {
-      setForceUpdate(prev => prev + 1);
+      // Language change handled by i18n
     };
 
     i18n.on('languageChanged', handleLanguageChanged);
