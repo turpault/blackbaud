@@ -788,42 +788,65 @@ class AuthService {
     keyGenerator: (constituentId: string) => `${constituentId}`
   })
   async getConstituent(constituentId: string): Promise<ConstituentInfo | null> {
-    try {
-      console.log(`🔍 getConstituent called for ID: ${constituentId}`);
-      const response = await this.apiRequest(`/constituent/v1/constituents/${constituentId}`);
-      console.log(`📡 Raw API response for ${constituentId}:`, response);
-      
-      // Handle different possible response formats
-      let constituentData: ConstituentInfo;
-      if (response && typeof response === 'object') {
-        if (response.value && Array.isArray(response.value)) {
-          // Response might be wrapped in a value array
-          constituentData = response.value[0] as ConstituentInfo;
-        } else if (response.id) {
-          // Direct constituent object
-          constituentData = response as ConstituentInfo;
+    // Check if there's already a pending request for this constituent
+    const promiseKey = `constituent_${constituentId}`;
+    let constituentPromise = this.constituentPromises.get(promiseKey);
+    
+    if (constituentPromise) {
+      console.log(`⏳ Reusing existing request for constituent ${constituentId}`);
+      return constituentPromise;
+    }
+    
+    console.log(`🔍 getConstituent called for ID: ${constituentId}`);
+    
+    // Create new promise for this constituent
+    constituentPromise = (async () => {
+      try {
+        const response = await this.apiRequest(`/constituent/v1/constituents/${constituentId}`);
+        console.log(`📡 Raw API response for ${constituentId}:`, response);
+        
+        // Handle different possible response formats
+        let constituentData: ConstituentInfo;
+        if (response && typeof response === 'object') {
+          if (response.value && Array.isArray(response.value)) {
+            // Response might be wrapped in a value array
+            constituentData = response.value[0] as ConstituentInfo;
+          } else if (response.id) {
+            // Direct constituent object
+            constituentData = response as ConstituentInfo;
+          } else {
+            console.error(`❌ Unexpected response format for ${constituentId}:`, response);
+            return null;
+          }
         } else {
-          console.error(`❌ Unexpected response format for ${constituentId}:`, response);
+          console.error(`❌ Invalid response for ${constituentId}:`, response);
           return null;
         }
-      } else {
-        console.error(`❌ Invalid response for ${constituentId}:`, response);
+        
+        console.log(`✅ getConstituent success for ${constituentId}:`, constituentData);
+        
+        // Validate that we have at least an ID and some identifying information
+        if (!constituentData.id) {
+          console.error(`❌ Constituent ${constituentId} missing ID in response`);
+          return null;
+        }
+        
+        return constituentData;
+      } catch (error: any) {
+        console.error(`❌ getConstituent failed for ${constituentId}:`, error);
         return null;
+      } finally {
+        // Remove from pending promises
+        this.constituentPromises.delete(promiseKey);
+        console.log(`📝 Removed constituent ${constituentId} from pending promises (total: ${this.constituentPromises.size})`);
       }
-      
-      console.log(`✅ getConstituent success for ${constituentId}:`, constituentData);
-      
-      // Validate that we have at least an ID and some identifying information
-      if (!constituentData.id) {
-        console.error(`❌ Constituent ${constituentId} missing ID in response`);
-        return null;
-      }
-      
-      return constituentData;
-    } catch (error: any) {
-      console.error(`❌ getConstituent failed for ${constituentId}:`, error);
-      return null;
-    }
+    })();
+    
+    // Store the promise for memoization
+    this.constituentPromises.set(promiseKey, constituentPromise);
+    console.log(`📝 Added constituent ${constituentId} to pending promises (total: ${this.constituentPromises.size})`);
+    
+    return constituentPromise;
   }
 
   // Get multiple constituents with batch caching
@@ -877,10 +900,44 @@ class AuthService {
 
     console.log(`📡 Need to fetch ${uncachedIds.length} uncached constituents:`, uncachedIds);
 
-    // Fetch uncached constituents from API
+    // Fetch uncached constituents from API with memoization
     const fetchPromises = uncachedIds.map(async (id) => {
-      console.log(`🔄 Fetching constituent ${id} from API`);
-      const constituent = await this.getConstituent(id);
+      // Check if there's already a pending request for this constituent
+      const promiseKey = `constituent_${id}`;
+      let constituentPromise = this.constituentPromises.get(promiseKey);
+      
+      if (!constituentPromise) {
+        console.log(`🔄 Creating new API request for constituent ${id}`);
+        constituentPromise = this.getConstituent(id).then(constituent => {
+          // Cache the result
+          if (constituent) {
+            const cacheKey = `constituent_${id}`;
+            const cacheData = {
+              data: constituent,
+              timestamp: Date.now()
+            };
+            localStorage.setItem(cacheKey, JSON.stringify(cacheData));
+            console.log(`💾 Cached constituent ${id}:`, constituent);
+          }
+          
+          // Remove from pending promises
+          this.constituentPromises.delete(promiseKey);
+          return constituent;
+        }).catch(error => {
+          // Remove from pending promises on error
+          this.constituentPromises.delete(promiseKey);
+          console.error(`❌ Failed to fetch constituent ${id}:`, error);
+          return null;
+        });
+        
+        // Store the promise for memoization
+        this.constituentPromises.set(promiseKey, constituentPromise);
+        console.log(`📝 Added constituent ${id} to pending promises (total: ${this.constituentPromises.size})`);
+      } else {
+        console.log(`⏳ Reusing existing request for constituent ${id}`);
+      }
+      
+      const constituent = await constituentPromise;
       results[id] = constituent;
       console.log(`✅ Fetched constituent ${id}:`, constituent);
     });

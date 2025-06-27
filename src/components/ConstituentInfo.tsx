@@ -16,8 +16,6 @@ const ConstituentInfo: React.FC<ConstituentInfoProps> = React.memo(({ constituen
     if (!constituentId) return;
 
     const loadConstituent = async () => {
-      if (constituent) return; // Already loaded
-
       setIsLoading(true);
       try {
         console.log(`🔍 Loading constituent ${constituentId}`);
@@ -33,7 +31,7 @@ const ConstituentInfo: React.FC<ConstituentInfoProps> = React.memo(({ constituen
     };
 
     loadConstituent();
-  }, [constituentId, constituent]);
+  }, [constituentId]); // Only depend on constituentId, not constituent
 
   if (!constituentId) {
     return <span style={{ color: "#6c757d" }}>No constituent</span>;
