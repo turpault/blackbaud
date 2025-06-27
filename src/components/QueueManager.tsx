@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { constituentQueue, attachmentQueue, pdfQueue, QueueStats } from '../utils/concurrentQueue';
+import { constituentQueue, attachmentQueue, QueueStats } from '../utils/concurrentQueue';
 
 interface QueueManagerProps {
   showDetails?: boolean;
@@ -10,14 +10,12 @@ const QueueManager: React.FC<QueueManagerProps> = ({ showDetails = false }) => {
   const { t } = useTranslation();
   const [constituentStats, setConstituentStats] = useState<QueueStats>(constituentQueue.getStats());
   const [attachmentStats, setAttachmentStats] = useState<QueueStats>(attachmentQueue.getStats());
-  const [pdfStats, setPdfStats] = useState<QueueStats>(pdfQueue.getStats());
   const [isExpanded, setIsExpanded] = useState(false);
 
   useEffect(() => {
     const updateStats = () => {
       setConstituentStats(constituentQueue.getStats());
       setAttachmentStats(attachmentQueue.getStats());
-      setPdfStats(pdfQueue.getStats());
     };
 
     const interval = setInterval(updateStats, 1000);
@@ -59,11 +57,11 @@ const QueueManager: React.FC<QueueManagerProps> = ({ showDetails = false }) => {
     console.log(`🧹 Cleared ${name} queue`);
   };
 
-  const totalTasks = constituentStats.totalTasks + attachmentStats.totalTasks + pdfStats.totalTasks;
-  const totalCompleted = constituentStats.completedTasks + attachmentStats.completedTasks + pdfStats.completedTasks;
-  const totalFailed = constituentStats.failedTasks + attachmentStats.failedTasks + pdfStats.failedTasks;
-  const totalPending = constituentStats.pendingTasks + attachmentStats.pendingTasks + pdfStats.pendingTasks;
-  const totalRunning = constituentStats.runningTasks + attachmentStats.runningTasks + pdfStats.runningTasks;
+  const totalTasks = constituentStats.totalTasks + attachmentStats.totalTasks;
+  const totalCompleted = constituentStats.completedTasks + attachmentStats.completedTasks;
+  const totalFailed = constituentStats.failedTasks + attachmentStats.failedTasks;
+  const totalPending = constituentStats.pendingTasks + attachmentStats.pendingTasks;
+  const totalRunning = constituentStats.runningTasks + attachmentStats.runningTasks;
 
   if (!showDetails && totalTasks === 0) {
     return null;
@@ -128,7 +126,6 @@ const QueueManager: React.FC<QueueManagerProps> = ({ showDetails = false }) => {
             onClick={() => {
               clearQueue(constituentQueue, 'Constituent');
               clearQueue(attachmentQueue, 'Attachment');
-              clearQueue(pdfQueue, 'PDF');
             }}
             style={{
               padding: '4px 8px',
@@ -308,58 +305,6 @@ const QueueManager: React.FC<QueueManagerProps> = ({ showDetails = false }) => {
                 <div>Failed: {attachmentStats.failedTasks}</div>
                 <div>Running: {attachmentStats.runningTasks}/3</div>
                 <div>Avg Time: {formatTime(attachmentStats.averageExecutionTime)}</div>
-              </div>
-            </div>
-
-            <div style={{
-              border: '1px solid #e9ecef',
-              borderRadius: '6px',
-              padding: '12px'
-            }}>
-              <div style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                marginBottom: '8px'
-              }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <span style={{ fontSize: '16px' }}>📄</span>
-                  <span style={{ fontWeight: 'bold', color: '#495057' }}>PDF Queue</span>
-                  <span style={{
-                    color: getStatusColor(getQueueStatus(pdfStats)),
-                    fontSize: '12px'
-                  }}>
-                    {getStatusIcon(getQueueStatus(pdfStats))} {getQueueStatus(pdfStats)}
-                  </span>
-                </div>
-                <button
-                  onClick={() => clearQueue(pdfQueue, 'PDF')}
-                  style={{
-                    padding: '2px 6px',
-                    backgroundColor: '#dc3545',
-                    color: 'white',
-                    border: 'none',
-                    borderRadius: '3px',
-                    cursor: 'pointer',
-                    fontSize: '10px'
-                  }}
-                >
-                  Clear
-                </button>
-              </div>
-
-              <div style={{
-                display: 'grid',
-                gridTemplateColumns: 'repeat(4, 1fr)',
-                gap: '8px',
-                fontSize: '12px'
-              }}>
-                <div>Total: {pdfStats.totalTasks}</div>
-                <div>Completed: {pdfStats.completedTasks}</div>
-                <div>Pending: {pdfStats.pendingTasks}</div>
-                <div>Failed: {pdfStats.failedTasks}</div>
-                <div>Running: {pdfStats.runningTasks}/1</div>
-                <div>Avg Time: {formatTime(pdfStats.averageExecutionTime)}</div>
               </div>
             </div>
           </div>
