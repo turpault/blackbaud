@@ -100,6 +100,10 @@ const GiftList: React.FC = () => {
   const [isLoadingComplete, setIsLoadingComplete] = useState<boolean>(false);
   const MAX_CARDS_TO_DISPLAY = 2000;
 
+  // Jump to card functionality
+  const [jumpToIndex, setJumpToIndex] = useState<string>('');
+  const cardRefs = useRef<Map<number, HTMLDivElement>>(new Map());
+
   // Debounced filters for better performance
   const [immediateFilters, debouncedFilters, setImmediateFilters] = useDebouncedState<Filters>({
     listId: searchParams.get('listId') || '',
@@ -386,6 +390,57 @@ const GiftList: React.FC = () => {
 
     return () => clearTimeout(timer);
   }, [displayedGifts.length, loading]);
+
+  // Jump to specific card index
+  const handleJumpToCard = useCallback((index: number): void => {
+    const cardElement = cardRefs.current.get(index);
+    if (cardElement) {
+      cardElement.scrollIntoView({
+        behavior: 'smooth',
+        block: 'center',
+        inline: 'center'
+      });
+
+      // Add a brief highlight effect
+      cardElement.style.boxShadow = '0 0 20px rgba(0, 123, 255, 0.8)';
+      setTimeout(() => {
+        cardElement.style.boxShadow = '';
+      }, 2000);
+
+      console.log(`Jumped to card ${index + 1}`);
+    } else {
+      console.warn(`Card at index ${index} not found`);
+    }
+  }, []);
+
+  // Handle jump to card form submission
+  const handleJumpToSubmit = useCallback((e: React.FormEvent): void => {
+    e.preventDefault();
+    const index = parseInt(jumpToIndex) - 1; // Convert to 0-based index
+    const maxIndex = displayedGifts.length - 1;
+
+    if (isNaN(index) || index < 0) {
+      alert(t('giftList.jumpToCard.invalidNumber'));
+      return;
+    }
+
+    if (index > maxIndex) {
+      alert(t('giftList.jumpToCard.notLoaded', { number: index + 1, max: maxIndex + 1 }));
+      return;
+    }
+
+    handleJumpToCard(index);
+    setJumpToIndex(''); // Clear the input
+  }, [jumpToIndex, displayedGifts.length, handleJumpToCard, t]);
+
+  // Register card ref
+  const registerCardRef = useCallback((index: number, element: HTMLDivElement | null): void => {
+    if (element) {
+      cardRefs.current.set(index, element);
+    } else {
+      cardRefs.current.delete(index);
+    }
+  }, []);
 
   if (loading) {
     return (
@@ -749,6 +804,44 @@ const GiftList: React.FC = () => {
             <option value={700}>{t('giftList.cardSizes.huge')}</option>
           </select>
         </div>
+
+        {/* Jump to Card Control */}
+        <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+          <label style={{ fontWeight: "bold", fontSize: "14px" }}>{t('giftList.jumpToCard.label')}:</label>
+          <form onSubmit={handleJumpToSubmit} style={{ display: "flex", alignItems: "center", gap: "4px" }}>
+            <input
+              type="number"
+              value={jumpToIndex}
+              onChange={(e) => setJumpToIndex(e.target.value)}
+              placeholder={t('giftList.jumpToCard.placeholder')}
+              min="1"
+              max={displayedGifts.length}
+              style={{
+                padding: "6px 10px",
+                border: "1px solid #ced4da",
+                borderRadius: "4px",
+                fontSize: "14px",
+                width: "80px"
+              }}
+            />
+            <button
+              type="submit"
+              style={{
+                padding: "6px 12px",
+                backgroundColor: "#28a745",
+                color: "white",
+                border: "none",
+                borderRadius: "4px",
+                cursor: "pointer",
+                fontSize: "12px",
+                fontWeight: "bold"
+              }}
+              title={`${t('giftList.jumpToCard.label')} (1-${displayedGifts.length})`}
+            >
+              🎯
+            </button>
+          </form>
+        </div>
       </div>
 
       {gifts.length === 0 ? (
@@ -766,13 +859,18 @@ const GiftList: React.FC = () => {
             fontSize: 0 // Remove whitespace between inline-block elements
           }}>
             {displayedGifts.map((gift, index) => (
-              <div key={gift.id} className="gift-card-wrapper" style={{
-                display: "inline-block",
-                width: `${zoomLevel}px`,
-                margin: "10px",
-                verticalAlign: "top",
-                fontSize: "14px" // Restore font size
-              }}>
+              <div
+                key={gift.id}
+                ref={(el) => registerCardRef(index, el)}
+                className="gift-card-wrapper"
+                style={{
+                  display: "inline-block",
+                  width: `${zoomLevel}px`,
+                  margin: "10px",
+                  verticalAlign: "top",
+                  fontSize: "14px" // Restore font size
+                }}
+              >
                 <GiftCard
                   key={gift.id}
                   gift={gift}

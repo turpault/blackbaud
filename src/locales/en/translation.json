@@ -114,6 +114,14 @@
       "extraLarge": "Extra Large (600px)",
       "huge": "Huge (700px)"
     },
+    "jumpToCard": {
+      "label": "Jump to Card",
+      "placeholder": "Enter card number",
+      "button": "Jump",
+      "invalidNumber": "Please enter a valid card number (1 or higher)",
+      "notLoaded": "Card {{number}} is not loaded yet. Maximum loaded card is {{max}}",
+      "success": "Jumped to card {{number}}"
+    },
     "filters": {
       "title": "Filters",
       "clear": "Clear Filters",

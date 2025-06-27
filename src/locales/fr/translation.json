@@ -114,6 +114,14 @@
       "extraLarge": "Très grande (600px)",
       "huge": "Énorme (700px)"
     },
+    "jumpToCard": {
+      "label": "Aller à la carte",
+      "placeholder": "Entrez le numéro de carte",
+      "button": "Aller",
+      "invalidNumber": "Veuillez entrer un numéro de carte valide (1 ou plus)",
+      "notLoaded": "La carte {{number}} n'est pas encore chargée. Carte maximale chargée : {{max}}",
+      "success": "Allé à la carte {{number}}"
+    },
     "filters": {
       "title": "Filtres",
       "clear": "Effacer les filtres",
