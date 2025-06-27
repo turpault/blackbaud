@@ -127,6 +127,9 @@ const GiftList: React.FC = () => {
   // Filter visibility state
   const [showFilters, setShowFilters] = useState<boolean>(false);
 
+  // Focus state for keyboard navigation
+  const [isFocused, setIsFocused] = useState<boolean>(false);
+
   // Debounced filters for better performance
   const [immediateFilters, debouncedFilters, setImmediateFilters] = useDebouncedState<Filters>({
     listId: searchParams.get('listId') || '',
@@ -809,6 +812,21 @@ const GiftList: React.FC = () => {
     return () => window.removeEventListener('resize', handleResize);
   }, [calculateGridLayout]);
 
+  // Set focus on scroll container when gifts are loaded
+  useEffect(() => {
+    if (!loading && gifts.length > 0 && scrollContainerRef.current) {
+      // Small delay to ensure the DOM is fully rendered
+      const timer = setTimeout(() => {
+        if (scrollContainerRef.current) {
+          scrollContainerRef.current.focus();
+          console.log('🎯 Focus set on gift list scroll container');
+        }
+      }, 100);
+
+      return () => clearTimeout(timer);
+    }
+  }, [loading, gifts.length]);
+
   // Handle refresh with cache clearing
   const handleRefresh = useCallback(async (): Promise<void> => {
     // Clear gift cache before fetching fresh data
@@ -998,6 +1016,24 @@ const GiftList: React.FC = () => {
         minHeight: "60px"
       }}>
         <h2>🎁 {t('giftList.title')}</h2>
+
+        {/* Keyboard Navigation Indicator */}
+        {isFocused && (
+          <div style={{
+            display: "flex",
+            alignItems: "center",
+            gap: "8px",
+            padding: "6px 12px",
+            backgroundColor: "#d4edda",
+            border: "1px solid #c3e6cb",
+            borderRadius: "6px",
+            fontSize: "12px",
+            color: "#155724",
+            fontWeight: "bold"
+          }}>
+            ⌨️ Keyboard Active
+          </div>
+        )}
 
         {/* Card Size and Jump to Controls */}
         <div style={{ display: "flex", alignItems: "center", gap: "15px" }}>
@@ -1362,11 +1398,16 @@ const GiftList: React.FC = () => {
               ref={scrollContainerRef}
               tabIndex={0}
               onKeyDown={handleKeyDown}
+              onFocus={() => setIsFocused(true)}
+              onBlur={() => setIsFocused(false)}
               style={{
                 height: "100%",
                 overflow: "auto",
                 position: "relative",
-                outline: "none"
+                outline: "none",
+                border: isFocused ? "2px solid #007bff" : "none",
+                borderRadius: isFocused ? "6px" : "0",
+                transition: "border-color 0.2s ease"
               }}
             >
               {/* Virtual content with total height */}
