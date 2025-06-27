@@ -36,13 +36,13 @@ const AttachmentsSection: React.FC<AttachmentsSectionProps> = React.memo(({
   isScrolling = false
 }) => {
   const { t } = useTranslation();
-  const [attachments, setAttachments] = useState<GiftAttachment[]>([]);
+  const [attachments, setAttachments] = useState<GiftAttachment[] | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [imageErrors, setImageErrors] = useState<Set<string>>(new Set());
 
   // Load attachments when component mounts or when expanded, but not during scrolling
   useEffect(() => {
-    if (attachments.length > 0 || isLoading || isScrolling) return;
+    if (isLoading || isScrolling || attachments) return;
 
     const loadAttachments = async () => {
       setIsLoading(true);
@@ -57,14 +57,21 @@ const AttachmentsSection: React.FC<AttachmentsSectionProps> = React.memo(({
         console.log(`✅ Loaded ${attachmentList.length} attachments for gift ${giftId}`);
       } catch (error) {
         console.error(`❌ Failed to load attachments for gift ${giftId}:`, error);
-        setAttachments([]);
+        setAttachments(null);
       } finally {
         setIsLoading(false);
       }
     };
 
     loadAttachments();
-  }, [giftId, attachments.length, isLoading, isScrolling]); // Add isScrolling to dependencies
+  }, [giftId, attachments, isLoading, isScrolling]); // Add isScrolling to dependencies
+
+  // Reset attachments when giftId changes
+  useEffect(() => {
+    setAttachments(null);
+    setIsLoading(false);
+    setImageErrors(new Set());
+  }, [giftId]);
 
   const isImageFile = (attachment: GiftAttachment): boolean => {
     if (!attachment.url) return false;
@@ -116,7 +123,7 @@ const AttachmentsSection: React.FC<AttachmentsSectionProps> = React.memo(({
     }
   };
 
-  if (attachments.length === 0 && !isLoading) {
+  if (attachments && attachments.length === 0 && !isLoading) {
     return (
       <div className="attachment-section" style={{
         borderTop: "1px solid #f0f0f0",
@@ -154,7 +161,7 @@ const AttachmentsSection: React.FC<AttachmentsSectionProps> = React.memo(({
           alignItems: "center",
           gap: "6px"
         }}>
-          📎 Attachments ({attachments.length})
+          📎 Attachments ({attachments?.length || 0})
           {isLoading && (
             <div
               style={{
@@ -189,7 +196,7 @@ const AttachmentsSection: React.FC<AttachmentsSectionProps> = React.memo(({
             flexDirection: "column",
             gap: "6px"
           }}>
-            {attachments.map((attachment, index) => (
+            {attachments?.map((attachment, index) => (
               <div
                 key={attachment.id || index}
                 style={{
@@ -277,7 +284,7 @@ const AttachmentsSection: React.FC<AttachmentsSectionProps> = React.memo(({
         alignItems: "center",
         gap: "6px"
       }}>
-        📎 {t('giftList.attachments.title')} ({attachments.length})
+        📎 {t('giftList.attachments.title')} ({attachments?.length || 0})
         {isLoading && (
           <div
             style={{
@@ -313,7 +320,7 @@ const AttachmentsSection: React.FC<AttachmentsSectionProps> = React.memo(({
           gap: "12px",
           maxWidth: "100%"
         }}>
-          {attachments.map((attachment, index) => (
+          {attachments?.map((attachment, index) => (
             <div
               key={attachment.id || index}
               style={{

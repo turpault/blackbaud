@@ -72,6 +72,7 @@ class ConcurrencyLimiter {
     try {
       // Execute the function
       const result = await queuedFunction.fn();
+      if(this.running.size > this.options.maxConcurrent) debugger;
       queuedFunction.resolve(result);
     } catch (error: any) {
       this.options.onError(queuedFunction.functionName, error);

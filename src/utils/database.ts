@@ -118,27 +118,46 @@ export const cacheUtils = {
 export const constituentCacheUtils = {
   // Set constituent data
   async set(constituentId: string, data: any, ttlMs: number = 3600000): Promise<void> {
-    const expiresAt = Date.now() + ttlMs;
-    await db.constituents.put({
-      constituentId,
-      data,
-      timestamp: Date.now(),
-      expiresAt
-    });
+    try {
+      const expiresAt = Date.now() + ttlMs;
+      console.log(`💾 Writing constituent ${constituentId} to IndexedDB, expires at: ${new Date(expiresAt).toISOString()}`);
+      
+      await db.constituents.put({
+        constituentId,
+        data,
+        timestamp: Date.now(),
+        expiresAt
+      });
+      
+      console.log(`✅ Successfully wrote constituent ${constituentId} to IndexedDB`);
+    } catch (error) {
+      console.error(`❌ Failed to write constituent ${constituentId} to IndexedDB:`, error);
+      throw error;
+    }
   },
 
   // Get constituent data
   async get(constituentId: string): Promise<any | null> {
-    const item = await db.constituents.where('constituentId').equals(constituentId).first();
-    if (!item) return null;
-    
-    // Check if expired
-    if (item.expiresAt && Date.now() > item.expiresAt) {
-      await db.constituents.where('constituentId').equals(constituentId).delete();
+    try {
+      const item = await db.constituents.where('constituentId').equals(constituentId).first();
+      if (!item) {
+        console.log(`🔍 Cache miss for constituent ${constituentId} - not found in IndexedDB`);
+        return null;
+      }
+      
+      // Check if expired
+      if (item.expiresAt && Date.now() > item.expiresAt) {
+        console.log(`⏰ Cache miss for constituent ${constituentId} - expired at ${new Date(item.expiresAt).toISOString()}`);
+        await db.constituents.where('constituentId').equals(constituentId).delete();
+        return null;
+      }
+      
+      console.log(`💾 Cache hit for constituent ${constituentId} from IndexedDB`);
+      return item.data;
+    } catch (error) {
+      console.error(`❌ Error reading constituent ${constituentId} from IndexedDB:`, error);
       return null;
     }
-    
-    return item.data;
   },
 
   // Delete constituent data

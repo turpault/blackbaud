@@ -93,9 +93,12 @@ export function cache<T>(options: CacheOptions = {}) {
         // Cache the result
         try {
           await setCachedResult(cacheKey, result, expirationMs, debug);
+          if (debug) {
+            console.log(`[Cache] ✅ Successfully cached result for key: ${cacheKey}`);
+          }
         } catch (cacheError) {
           if (debug) {
-            console.warn(`[Cache] Failed to cache result for key ${cacheKey}:`, cacheError);
+            console.warn(`[Cache] ❌ Failed to cache result for key ${cacheKey}:`, cacheError);
           }
           // Don't fail the request if caching fails
         }

@@ -14,7 +14,7 @@ const ConstituentInfo: React.FC<ConstituentInfoProps> = React.memo(({ constituen
 
   // Load constituent when component mounts, but not during scrolling
   useEffect(() => {
-    if (!constituentId || isScrolling) return;
+    if (!constituentId || isScrolling || constituent?.id === constituentId) return;
 
     const loadConstituent = async () => {
       setIsLoading(true);
@@ -33,6 +33,12 @@ const ConstituentInfo: React.FC<ConstituentInfoProps> = React.memo(({ constituen
 
     loadConstituent();
   }, [constituentId, isScrolling]); // Add isScrolling to dependencies
+
+  useEffect(() => {
+    if (!constituentId || constituent?.id !== constituentId) {
+      setConstituent(null);
+    }
+  }, [constituentId, constituent]);
 
   if (!constituentId) {
     return <span style={{ color: "#6c757d" }}>No constituent</span>;

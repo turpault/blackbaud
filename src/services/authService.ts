@@ -721,6 +721,11 @@ class AuthService {
 
   // Get gift attachments with concurrency control
   @withConcurrencyLimit({ maxConcurrent: 3 })
+  @cache({ 
+    keyPrefix: 'getGiftAttachments', 
+    expirationMs: 60*60*1000, // 30 minutes
+    keyGenerator: (giftId: string) => `giftId_${giftId}`
+  })
   async getGiftAttachments(giftId: string): Promise<any> {
     console.log(`🔍 getGiftAttachments called for gift ID: ${giftId}`);
     return await this.apiRequest(`/gift/v1/gifts/${giftId}/attachments`);
@@ -739,6 +744,7 @@ class AuthService {
   }
 
   // Get queries from the Query API
+  @withConcurrencyLimit({maxConcurrent: 1})
   @cache({ 
     keyPrefix: 'queries', 
     expirationMs: 900000, // 15 minutes
@@ -751,11 +757,6 @@ class AuthService {
 
   // Get constituent information by ID with caching
   @withConcurrencyLimit({maxConcurrent: 1})
-  @cache({ 
-    keyPrefix: 'getConstituent', 
-    expirationMs: 30*24*60*60*1000, // 30 days
-    keyGenerator: (constituentId: string) => `${constituentId}`
-  })
   async getConstituent(constituentId: string): Promise<ConstituentInfo | null> {
     // Check if there's already a pending request for this constituent
     const promiseKey = `constituent_${constituentId}`;
@@ -771,6 +772,15 @@ class AuthService {
     // Create new promise for this constituent
     constituentPromise = (async () => {
       try {
+        // First, try to get from cache
+        const cachedData = await constituentCacheUtils.get(constituentId);
+        if (cachedData) {
+          console.log(`💾 Cache hit for constituent ${constituentId}`);
+          return cachedData;
+        }
+        
+        console.log(`📡 Cache miss for constituent ${constituentId}, fetching from API`);
+        
         const response = await this.apiRequest(`/constituent/v1/constituents/${constituentId}`);
         console.log(`📡 Raw API response for ${constituentId}:`, response);
         
@@ -799,6 +809,22 @@ class AuthService {
           console.error(`❌ Constituent ${constituentId} missing ID in response`);
           return null;
         }
+        
+        // Cache the constituent data
+        try {
+          await constituentCacheUtils.set(constituentId, constituentData, 30*24*60*60*1000); // 30 days
+          console.log(`💾 Successfully cached constituent ${constituentId} to local database`);
+        } catch (cacheError) {
+          console.warn(`⚠️ Failed to cache constituent ${constituentId}:`, cacheError);
+          // Don't fail the request if caching fails
+        }
+        
+        // Additional logging to track successful constituent data
+        console.log(`💾 Constituent ${constituentId} ready for caching:`, {
+          id: constituentData.id,
+          name: constituentData.name,
+          hasData: !!constituentData
+        });
         
         return constituentData;
       } catch (error: any) {
