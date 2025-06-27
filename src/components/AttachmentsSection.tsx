@@ -223,13 +223,23 @@ const AttachmentsSection: React.FC<AttachmentsSectionProps> = React.memo(({
                 </div>
 
                 {/* File name */}
-                <span style={{
-                  flex: 1,
-                  color: "#495057",
-                  overflow: "hidden",
-                  textOverflow: "ellipsis",
-                  whiteSpace: "nowrap"
-                }}>
+                <span
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleDownload(attachment);
+                  }}
+                  style={{
+                    flex: 1,
+                    color: "#007bff",
+                    overflow: "hidden",
+                    textOverflow: "ellipsis",
+                    whiteSpace: "nowrap",
+                    cursor: "pointer",
+                    textDecoration: "underline",
+                    fontWeight: "500"
+                  }}
+                  title={`Download ${attachment.name || attachment.file_name || 'attachment'}`}
+                >
                   {attachment.name || attachment.file_name || "Unnamed Attachment"}
                 </span>
 
@@ -243,28 +253,6 @@ const AttachmentsSection: React.FC<AttachmentsSectionProps> = React.memo(({
                     {formatFileSize(attachment.file_size)}
                   </span>
                 )}
-
-                {/* Download button */}
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleDownload(attachment);
-                  }}
-                  style={{
-                    padding: "3px 6px",
-                    backgroundColor: "#007bff",
-                    color: "white",
-                    border: "none",
-                    borderRadius: "3px",
-                    cursor: "pointer",
-                    fontSize: "9px",
-                    fontWeight: "bold",
-                    whiteSpace: "nowrap"
-                  }}
-                  title={`Download ${attachment.name || attachment.file_name || 'attachment'}`}
-                >
-                  📥
-                </button>
               </div>
             ))}
           </div>
@@ -336,7 +324,21 @@ const AttachmentsSection: React.FC<AttachmentsSectionProps> = React.memo(({
               }}
             >
               <div style={{ marginBottom: "8px" }}>
-                <strong style={{ fontSize: "12px", color: "#495057", wordBreak: "break-word" }}>
+                <strong
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleDownload(attachment);
+                  }}
+                  style={{
+                    fontSize: "12px",
+                    color: "#007bff",
+                    wordBreak: "break-word",
+                    cursor: "pointer",
+                    textDecoration: "underline",
+                    fontWeight: "bold"
+                  }}
+                  title={`Download ${attachment.name || attachment.file_name || 'attachment'}`}
+                >
                   {attachment.name || attachment.file_name || "Unnamed Attachment"}
                 </strong>
               </div>
@@ -383,31 +385,7 @@ const AttachmentsSection: React.FC<AttachmentsSectionProps> = React.memo(({
                 </div>
               )}
 
-              {/* Download Button - Smaller */}
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handleDownload(attachment);
-                }}
-                style={{
-                  width: "100%",
-                  padding: "4px 8px",
-                  backgroundColor: "#007bff",
-                  color: "white",
-                  border: "none",
-                  borderRadius: "3px",
-                  cursor: "pointer",
-                  fontSize: "10px",
-                  fontWeight: "bold",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  gap: "3px"
-                }}
-                title={`Download ${attachment.name || attachment.file_name || 'attachment'}`}
-              >
-                📥 Download
-              </button>
+              {/* Download functionality is now handled by clicking the file name */}
             </div>
           ))}
         </div>
