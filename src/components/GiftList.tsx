@@ -658,21 +658,43 @@ const GiftList: React.FC = () => {
     if (!scrollContainerRef.current) return;
 
     const scrollContainer = scrollContainerRef.current;
-    const viewportHeight = scrollContainer.clientHeight;
     const currentScrollTop = scrollContainer.scrollTop;
+    const rowHeight = cardHeight + gridGap; // Height of one row
 
     switch (e.key) {
+      case 'ArrowDown':
+        e.preventDefault();
+        // Scroll to next row exactly
+        const nextRowTop = Math.ceil(currentScrollTop / rowHeight) * rowHeight;
+        scrollContainer.scrollTo({
+          top: nextRowTop,
+          behavior: 'smooth'
+        });
+        break;
+      case 'ArrowUp':
+        e.preventDefault();
+        // Scroll to previous row exactly
+        const prevRowTop = Math.max(0, Math.floor(currentScrollTop / rowHeight) * rowHeight);
+        scrollContainer.scrollTo({
+          top: prevRowTop,
+          behavior: 'smooth'
+        });
+        break;
       case 'PageDown':
         e.preventDefault();
+        // Scroll to next 10 rows exactly
+        const next10RowsTop = Math.ceil(currentScrollTop / rowHeight) * rowHeight + (10 * rowHeight);
         scrollContainer.scrollTo({
-          top: currentScrollTop + viewportHeight,
+          top: next10RowsTop,
           behavior: 'smooth'
         });
         break;
       case 'PageUp':
         e.preventDefault();
+        // Scroll to previous 10 rows exactly
+        const prev10RowsTop = Math.max(0, Math.floor(currentScrollTop / rowHeight) * rowHeight - (10 * rowHeight));
         scrollContainer.scrollTo({
-          top: Math.max(0, currentScrollTop - viewportHeight),
+          top: prev10RowsTop,
           behavior: 'smooth'
         });
         break;
@@ -691,7 +713,7 @@ const GiftList: React.FC = () => {
         });
         break;
     }
-  }, []);
+  }, [cardHeight, gridGap]);
 
   // Set up keyboard event listener
   useEffect(() => {
