@@ -66,7 +66,7 @@ const Lists: React.FC = () => {
     try {
       // Use centralized query handler
       const response: ListsResponse = await authService.executeQuery(
-        () => authService.getLists(1000, filters.listType || 'Gift'),
+        () => authService.getLists(filters.listType || 'Gift'),
         'fetching lists',
         (errorMsg) => setError(errorMsg)
       );
