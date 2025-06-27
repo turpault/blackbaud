@@ -124,6 +124,9 @@ const GiftList: React.FC = () => {
   const [jumpToIndex, setJumpToIndex] = useState<string>('');
   const cardRefs = useRef<Map<number, HTMLDivElement>>(new Map());
 
+  // Filter visibility state
+  const [showFilters, setShowFilters] = useState<boolean>(false);
+
   // Debounced filters for better performance
   const [immediateFilters, debouncedFilters, setImmediateFilters] = useDebouncedState<Filters>({
     listId: searchParams.get('listId') || '',
@@ -924,6 +927,26 @@ const GiftList: React.FC = () => {
             </select>
           </div>
 
+          <button
+            onClick={() => setShowFilters(!showFilters)}
+            style={{
+              padding: "6px 12px",
+              backgroundColor: showFilters ? "#28a745" : "#6c757d",
+              color: "white",
+              border: "none",
+              borderRadius: "4px",
+              cursor: "pointer",
+              fontSize: "12px",
+              fontWeight: "bold",
+              display: "flex",
+              alignItems: "center",
+              gap: "4px"
+            }}
+            title={showFilters ? "Hide filters" : "Show filters"}
+          >
+            {showFilters ? "🔽" : "🔼"} Filters
+          </button>
+
           <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
             <label style={{ fontWeight: "bold", fontSize: "14px" }}>{t('giftList.jumpToCard.label')}:</label>
             <form onSubmit={handleJumpToSubmit} style={{ display: "flex", alignItems: "center", gap: "4px" }}>
@@ -984,189 +1007,191 @@ const GiftList: React.FC = () => {
       </div>
 
       {/* Filter and Sort Controls */}
-      <div style={{
-        marginBottom: "20px",
-        padding: "15px",
-        backgroundColor: "#f8f9fa",
-        borderRadius: "8px",
-        border: "1px solid #dee2e6",
-        display: "flex",
-        alignItems: "center",
-        gap: "15px",
-        flexWrap: "wrap",
-        minHeight: "60px"
-      }}>
-        <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-          <label style={{ fontWeight: "bold", fontSize: "14px" }}>{t('giftList.filters.type')}:</label>
-          <select
-            value={immediateFilters.giftType}
-            onChange={(e) => handleFilterChange('giftType', e.target.value)}
-            style={{
-              padding: "6px 10px",
-              border: "1px solid #ced4da",
-              borderRadius: "4px",
-              fontSize: "14px",
-              minWidth: "120px"
-            }}
-          >
-            <option value="">{t('giftList.filters.allTypes')}</option>
-            {uniqueTypes.map(type => (
-              <option key={type} value={type}>{type}</option>
-            ))}
-          </select>
-        </div>
-
-        <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-          <label style={{ fontWeight: "bold", fontSize: "14px" }}>{t('giftList.filters.status')}:</label>
-          <select
-            value={immediateFilters.giftStatus}
-            onChange={(e) => handleFilterChange('giftStatus', e.target.value)}
-            style={{
-              padding: "6px 10px",
-              border: "1px solid #ced4da",
-              borderRadius: "4px",
-              fontSize: "14px",
-              minWidth: "120px"
-            }}
-          >
-            <option value="">{t('giftList.filters.allStatuses')}</option>
-            {uniqueStatuses.map(status => (
-              <option key={status} value={status}>{status}</option>
-            ))}
-          </select>
-        </div>
-
-        <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-          <label style={{ fontWeight: "bold", fontSize: "14px" }}>{t('giftList.filters.amountFrom')}:</label>
-          <input
-            type="number"
-            value={immediateFilters.amountFrom}
-            onChange={(e) => handleFilterChange('amountFrom', e.target.value)}
-            placeholder="Min amount"
-            style={{
-              padding: "6px 10px",
-              border: "1px solid #ced4da",
-              borderRadius: "4px",
-              fontSize: "14px",
-              width: "100px"
-            }}
-          />
-        </div>
-
-        <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-          <label style={{ fontWeight: "bold", fontSize: "14px" }}>{t('giftList.filters.amountTo')}:</label>
-          <input
-            type="number"
-            value={immediateFilters.amountTo}
-            onChange={(e) => handleFilterChange('amountTo', e.target.value)}
-            placeholder="Max amount"
-            style={{
-              padding: "6px 10px",
-              border: "1px solid #ced4da",
-              borderRadius: "4px",
-              fontSize: "14px",
-              width: "100px"
-            }}
-          />
-        </div>
-
-        <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-          <label style={{ fontWeight: "bold", fontSize: "14px" }}>{t('giftList.filters.dateFrom')}:</label>
-          <input
-            type="date"
-            value={immediateFilters.dateFrom}
-            onChange={(e) => handleFilterChange('dateFrom', e.target.value)}
-            style={{
-              padding: "6px 10px",
-              border: "1px solid #ced4da",
-              borderRadius: "4px",
-              fontSize: "14px",
-              minWidth: "120px"
-            }}
-          />
-        </div>
-
-        <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-          <label style={{ fontWeight: "bold", fontSize: "14px" }}>{t('giftList.filters.dateTo')}:</label>
-          <input
-            type="date"
-            value={immediateFilters.dateTo}
-            onChange={(e) => handleFilterChange('dateTo', e.target.value)}
-            style={{
-              padding: "6px 10px",
-              border: "1px solid #ced4da",
-              borderRadius: "4px",
-              fontSize: "14px",
-              minWidth: "120px"
-            }}
-          />
-        </div>
-
-        <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-          <label style={{ fontWeight: "bold", fontSize: "14px" }}>{t('giftList.filters.sortBy')}:</label>
-          <select
-            value={sortColumn || ''}
-            onChange={(e) => handleSort(e.target.value)}
-            style={{
-              padding: "6px 10px",
-              border: "1px solid #ced4da",
-              borderRadius: "4px",
-              fontSize: "14px",
-              minWidth: "140px"
-            }}
-          >
-            <option value="">{t('giftList.filters.noSorting')}</option>
-            <option value="amount">{t('giftList.columns.amount')}</option>
-            <option value="date">{t('giftList.columns.date')}</option>
-            <option value="constituent">{t('giftList.columns.constituent')}</option>
-            <option value="type">{t('giftList.columns.type')}</option>
-            <option value="status">{t('giftList.columns.status')}</option>
-            <option value="fund">{t('giftList.columns.fund')}</option>
-            <option value="campaign">{t('giftList.columns.campaign')}</option>
-            <option value="appeal">{t('giftList.columns.appeal')}</option>
-          </select>
-          {sortColumn && (
-            <button
-              onClick={() => handleSort(sortColumn)}
+      {showFilters && (
+        <div style={{
+          marginBottom: "20px",
+          padding: "15px",
+          backgroundColor: "#f8f9fa",
+          borderRadius: "8px",
+          border: "1px solid #dee2e6",
+          display: "flex",
+          alignItems: "center",
+          gap: "15px",
+          flexWrap: "wrap",
+          minHeight: "60px"
+        }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+            <label style={{ fontWeight: "bold", fontSize: "14px" }}>{t('giftList.filters.type')}:</label>
+            <select
+              value={immediateFilters.giftType}
+              onChange={(e) => handleFilterChange('giftType', e.target.value)}
               style={{
-                padding: "6px 8px",
-                backgroundColor: "#007bff",
+                padding: "6px 10px",
+                border: "1px solid #ced4da",
+                borderRadius: "4px",
+                fontSize: "14px",
+                minWidth: "120px"
+              }}
+            >
+              <option value="">{t('giftList.filters.allTypes')}</option>
+              {uniqueTypes.map(type => (
+                <option key={type} value={type}>{type}</option>
+              ))}
+            </select>
+          </div>
+
+          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+            <label style={{ fontWeight: "bold", fontSize: "14px" }}>{t('giftList.filters.status')}:</label>
+            <select
+              value={immediateFilters.giftStatus}
+              onChange={(e) => handleFilterChange('giftStatus', e.target.value)}
+              style={{
+                padding: "6px 10px",
+                border: "1px solid #ced4da",
+                borderRadius: "4px",
+                fontSize: "14px",
+                minWidth: "120px"
+              }}
+            >
+              <option value="">{t('giftList.filters.allStatuses')}</option>
+              {uniqueStatuses.map(status => (
+                <option key={status} value={status}>{status}</option>
+              ))}
+            </select>
+          </div>
+
+          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+            <label style={{ fontWeight: "bold", fontSize: "14px" }}>{t('giftList.filters.amountFrom')}:</label>
+            <input
+              type="number"
+              value={immediateFilters.amountFrom}
+              onChange={(e) => handleFilterChange('amountFrom', e.target.value)}
+              placeholder="Min amount"
+              style={{
+                padding: "6px 10px",
+                border: "1px solid #ced4da",
+                borderRadius: "4px",
+                fontSize: "14px",
+                width: "100px"
+              }}
+            />
+          </div>
+
+          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+            <label style={{ fontWeight: "bold", fontSize: "14px" }}>{t('giftList.filters.amountTo')}:</label>
+            <input
+              type="number"
+              value={immediateFilters.amountTo}
+              onChange={(e) => handleFilterChange('amountTo', e.target.value)}
+              placeholder="Max amount"
+              style={{
+                padding: "6px 10px",
+                border: "1px solid #ced4da",
+                borderRadius: "4px",
+                fontSize: "14px",
+                width: "100px"
+              }}
+            />
+          </div>
+
+          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+            <label style={{ fontWeight: "bold", fontSize: "14px" }}>{t('giftList.filters.dateFrom')}:</label>
+            <input
+              type="date"
+              value={immediateFilters.dateFrom}
+              onChange={(e) => handleFilterChange('dateFrom', e.target.value)}
+              style={{
+                padding: "6px 10px",
+                border: "1px solid #ced4da",
+                borderRadius: "4px",
+                fontSize: "14px",
+                minWidth: "120px"
+              }}
+            />
+          </div>
+
+          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+            <label style={{ fontWeight: "bold", fontSize: "14px" }}>{t('giftList.filters.dateTo')}:</label>
+            <input
+              type="date"
+              value={immediateFilters.dateTo}
+              onChange={(e) => handleFilterChange('dateTo', e.target.value)}
+              style={{
+                padding: "6px 10px",
+                border: "1px solid #ced4da",
+                borderRadius: "4px",
+                fontSize: "14px",
+                minWidth: "120px"
+              }}
+            />
+          </div>
+
+          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+            <label style={{ fontWeight: "bold", fontSize: "14px" }}>{t('giftList.filters.sortBy')}:</label>
+            <select
+              value={sortColumn || ''}
+              onChange={(e) => handleSort(e.target.value)}
+              style={{
+                padding: "6px 10px",
+                border: "1px solid #ced4da",
+                borderRadius: "4px",
+                fontSize: "14px",
+                minWidth: "140px"
+              }}
+            >
+              <option value="">{t('giftList.filters.noSorting')}</option>
+              <option value="amount">{t('giftList.columns.amount')}</option>
+              <option value="date">{t('giftList.columns.date')}</option>
+              <option value="constituent">{t('giftList.columns.constituent')}</option>
+              <option value="type">{t('giftList.columns.type')}</option>
+              <option value="status">{t('giftList.columns.status')}</option>
+              <option value="fund">{t('giftList.columns.fund')}</option>
+              <option value="campaign">{t('giftList.columns.campaign')}</option>
+              <option value="appeal">{t('giftList.columns.appeal')}</option>
+            </select>
+            {sortColumn && (
+              <button
+                onClick={() => handleSort(sortColumn)}
+                style={{
+                  padding: "6px 8px",
+                  backgroundColor: "#007bff",
+                  color: "white",
+                  border: "none",
+                  borderRadius: "4px",
+                  cursor: "pointer",
+                  fontSize: "12px"
+                }}
+                title={`Currently sorted ${sortDirection}ending - click to change`}
+              >
+                {sortDirection === 'asc' ? '↑' : '↓'}
+              </button>
+            )}
+          </div>
+
+          {(immediateFilters.giftType || immediateFilters.dateFrom || immediateFilters.dateTo) && (
+            <button
+              onClick={clearFilters}
+              style={{
+                padding: "6px 12px",
+                backgroundColor: "#6c757d",
                 color: "white",
                 border: "none",
                 borderRadius: "4px",
                 cursor: "pointer",
-                fontSize: "12px"
+                fontSize: "14px"
               }}
-              title={`Currently sorted ${sortDirection}ending - click to change`}
             >
-              {sortDirection === 'asc' ? '↑' : '↓'}
+              {t('giftList.filters.clear')}
             </button>
           )}
-        </div>
 
-        {(immediateFilters.giftType || immediateFilters.dateFrom || immediateFilters.dateTo) && (
-          <button
-            onClick={clearFilters}
-            style={{
-              padding: "6px 12px",
-              backgroundColor: "#6c757d",
-              color: "white",
-              border: "none",
-              borderRadius: "4px",
-              cursor: "pointer",
-              fontSize: "14px"
-            }}
-          >
-            {t('giftList.filters.clear')}
-          </button>
-        )}
-
-        <div style={{ marginLeft: "auto", fontSize: "14px", color: "#6c757d" }}>
-          {gifts.length !== totalCount && (
-            <span>{t('giftList.showing', { shown: gifts.length, total: totalCount.toLocaleString() })}</span>
-          )}
+          <div style={{ marginLeft: "auto", fontSize: "14px", color: "#6c757d" }}>
+            {gifts.length !== totalCount && (
+              <span>{t('giftList.showing', { shown: gifts.length, total: totalCount.toLocaleString() })}</span>
+            )}
+          </div>
         </div>
-      </div>
+      )}
 
       {gifts.length === 0 ? (
         <div style={{ textAlign: "center", padding: "40px", color: "#666" }}>
