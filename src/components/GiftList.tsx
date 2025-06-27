@@ -1030,7 +1030,24 @@ const GiftList: React.FC = () => {
         color: "#333",
         minHeight: "60px"
       }}>
-        <h2>🎁 {t('giftList.title')}</h2>
+        <div>
+          <h2>🎁 {t('giftList.title')}</h2>
+          {filters.listId && cachedLists[filters.listId] && (
+            <div style={{
+              fontSize: "14px",
+              color: "#666",
+              marginTop: "4px",
+              fontStyle: "italic"
+            }}>
+              List: "{cachedLists[filters.listId].name}"
+              {cachedLists[filters.listId].description && (
+                <span style={{ marginLeft: "8px" }}>
+                  - {cachedLists[filters.listId].description}
+                </span>
+              )}
+            </div>
+          )}
+        </div>
 
         {/* Keyboard Navigation Indicator */}
         {isFocused && (
