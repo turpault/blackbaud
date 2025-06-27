@@ -15,6 +15,11 @@ const QuotaNotification: React.FC<QuotaNotificationProps> = ({
   const { t } = useTranslation();
   const [timeRemaining, setTimeRemaining] = useState<number>(0);
 
+  // Debug logging
+  useEffect(() => {
+    console.log('🔔 QuotaNotification render:', { isVisible, retryAfter, timeRemaining });
+  }, [isVisible, retryAfter, timeRemaining]);
+
   useEffect(() => {
     if (!retryAfter || !isVisible) {
       setTimeRemaining(0);
@@ -23,11 +28,13 @@ const QuotaNotification: React.FC<QuotaNotificationProps> = ({
 
     const retrySeconds = parseInt(retryAfter);
     setTimeRemaining(retrySeconds);
+    console.log('⏰ Starting countdown timer:', retrySeconds, 'seconds');
 
     const interval = setInterval(() => {
       setTimeRemaining(prev => {
         if (prev <= 1) {
           clearInterval(interval);
+          console.log('⏰ Countdown finished, dismissing notification');
           if (onDismiss) {
             onDismiss();
           }
@@ -41,8 +48,11 @@ const QuotaNotification: React.FC<QuotaNotificationProps> = ({
   }, [retryAfter, isVisible, onDismiss]);
 
   if (!isVisible) {
+    console.log('🔔 QuotaNotification: not visible, returning null');
     return null;
   }
+
+  console.log('🔔 QuotaNotification: rendering notification');
 
   const formatTime = (seconds: number): string => {
     const minutes = Math.floor(seconds / 60);

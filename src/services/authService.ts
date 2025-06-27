@@ -56,6 +56,16 @@ class AuthService {
         // Check specifically for 403 status (Blackbaud quota exceeded)
         const is403Error = error.response?.status === 403 || error.status === 403;
         
+        // Trigger quota notification immediately when rate limit is first encountered
+        if (isQuotaError && attempt === 0) {
+          const retryAfter = error.response?.headers?.['retry-after'] || 
+                            error.response?.headers?.['Retry-After'] ||
+                            error.response?.data?.retry_after ||
+                            error.response?.data?.retryAfter ||
+                            error.retryAfter;
+          this.notifyQuotaExceeded(retryAfter);
+        }
+        
         // Only retry on 429 errors, fail immediately on 403
         if (is403Error) {
           console.warn(`🚫 403 Quota Exceeded - No retry attempted, failing immediately`);
@@ -194,6 +204,27 @@ class AuthService {
       console.log('✅ Quota notification triggered successfully');
     } else {
       console.warn('⚠️ Quota context not available - notification may not display');
+      
+      // Fallback: try to set up the context if it's not available
+      // This can happen if the error occurs before the App component has mounted
+      const setupQuotaContext = () => {
+        if ((window as any).__quotaContext) {
+          (window as any).__quotaContext.setQuotaExceeded(true, retryAfter);
+          console.log('✅ Quota notification triggered via fallback mechanism');
+          return true;
+        }
+        return false;
+      };
+      
+      // Try immediately
+      if (!setupQuotaContext()) {
+        // If not available, try again after a short delay
+        setTimeout(() => {
+          if (!setupQuotaContext()) {
+            console.error('❌ Failed to trigger quota notification - context not available after retry');
+          }
+        }, 100);
+      }
     }
   }
 

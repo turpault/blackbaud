@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, ReactNode } from 'react';
+import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react';
 
 interface QuotaContextType {
   isQuotaExceeded: boolean;
@@ -18,14 +18,21 @@ export const QuotaProvider: React.FC<QuotaProviderProps> = ({ children }) => {
   const [retryAfter, setRetryAfter] = useState<string | undefined>(undefined);
 
   const setQuotaExceeded = (exceeded: boolean, retryAfterSeconds?: string) => {
+    console.log('🔔 QuotaContext: setQuotaExceeded called:', { exceeded, retryAfterSeconds });
     setIsQuotaExceeded(exceeded);
     setRetryAfter(retryAfterSeconds);
   };
 
   const clearQuotaExceeded = () => {
+    console.log('🔔 QuotaContext: clearQuotaExceeded called');
     setIsQuotaExceeded(false);
     setRetryAfter(undefined);
   };
+
+  // Debug logging for state changes
+  useEffect(() => {
+    console.log('🔔 QuotaContext: state changed:', { isQuotaExceeded, retryAfter });
+  }, [isQuotaExceeded, retryAfter]);
 
   return (
     <QuotaContext.Provider value={{

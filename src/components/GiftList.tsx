@@ -738,7 +738,7 @@ const GiftList: React.FC = () => {
       case 'ArrowDown':
         e.preventDefault();
         // Scroll to next row exactly
-        const nextRowTop = Math.ceil(currentScrollTop / rowHeight) * rowHeight;
+        const nextRowTop = Math.ceil(currentScrollTop / rowHeight) * rowHeight + rowHeight;
         console.log(`Arrow Down: scrolling to ${nextRowTop}`);
         scrollContainer.scrollTo({
           top: nextRowTop,
@@ -748,7 +748,7 @@ const GiftList: React.FC = () => {
       case 'ArrowUp':
         e.preventDefault();
         // Scroll to previous row exactly
-        const prevRowTop = Math.max(0, Math.floor(currentScrollTop / rowHeight) * rowHeight);
+        const prevRowTop = Math.max(0, Math.floor(currentScrollTop / rowHeight) * rowHeight - rowHeight);
         console.log(`Arrow Up: scrolling to ${prevRowTop}`);
         scrollContainer.scrollTo({
           top: prevRowTop,
