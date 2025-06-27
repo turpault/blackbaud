@@ -431,7 +431,7 @@ class AuthService {
     expirationMs: 300000, // 5 minutes
     keyGenerator: (limit: number, listId?: string) => `limit_${limit}_listId_${listId || 'none'}`
   })
-  async getGifts(limit: number = 50, listId?: string): Promise<any> {
+  async getGifts(limit: number = 1000, listId?: string): Promise<any> {
     let url = `/gift/v1/gifts?limit=${limit}`;
     if (listId) {
       url += `&list_id=${encodeURIComponent(listId)}`;

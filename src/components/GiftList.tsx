@@ -128,7 +128,7 @@ const GiftList: React.FC = () => {
 
     try {
       const response: GiftListResponse = await authService.executeQuery(
-        () => authService.getGifts(50, filters.listId || undefined),
+        () => authService.getGifts(1000, filters.listId || undefined),
         'fetching gifts',
         (errorMsg) => setError(errorMsg)
       );
@@ -353,8 +353,9 @@ const GiftList: React.FC = () => {
     // If we have gifts but no displayed gifts yet, start progressive loading
     if (gifts.length > 0 && displayedGifts.length === 0) {
       const timer = setTimeout(() => {
-        setDisplayedGifts(gifts.slice(0, Math.min(25, gifts.length)));
-      }, 100);
+        // Load a larger initial batch to show more gifts quickly
+        setDisplayedGifts(gifts.slice(0, Math.min(100, gifts.length)));
+      }, 50); // Shorter delay for faster initial loading
       return () => clearTimeout(timer);
     }
 
@@ -363,10 +364,11 @@ const GiftList: React.FC = () => {
     if (displayedGifts.length < targetCount) {
       const timer = setTimeout(() => {
         setDisplayedGifts(prev => {
-          const newCount = Math.min(prev.length + 25, targetCount); // Smaller batches for smoother loading
+          // Use larger batches to load all gifts more quickly
+          const newCount = Math.min(prev.length + 100, targetCount);
           return gifts.slice(0, newCount);
         });
-      }, 150); // Longer delay to reduce flickering
+      }, 50); // Shorter delay for faster loading
 
       return () => clearTimeout(timer);
     } else if (displayedGifts.length === targetCount && !isLoadingComplete && !nextLink) {
