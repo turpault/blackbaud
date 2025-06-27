@@ -48,9 +48,8 @@ const Lists: React.FC = () => {
 
   // Available list types based on Blackbaud API documentation
   const availableListTypes = [
-    { value: '', label: 'All Types' },
-    { value: 'Constituent', label: 'Constituent' },
     { value: 'Gift', label: 'Gift' },
+    { value: 'Constituent', label: 'Constituent' },
     { value: 'Action', label: 'Action' },
     { value: 'Opportunity', label: 'Opportunity' },
     { value: 'Event', label: 'Event' },
@@ -75,7 +74,7 @@ const Lists: React.FC = () => {
     try {
       // Use centralized query handler
       const response: ListsResponse = await authService.executeQuery(
-        () => authService.getLists(50, filters.listType || undefined),
+        () => authService.getLists(50, filters.listType || 'Gift'),
         'fetching lists',
         (errorMsg) => setError(errorMsg)
       );
@@ -225,8 +224,8 @@ const Lists: React.FC = () => {
   const updateUrlParams = (newFilters: Filters, newSortColumn?: string | null, newSortDirection?: SortDirection) => {
     const params = new URLSearchParams();
 
-    // Add filters to URL
-    if (newFilters.listType) params.set('listType', newFilters.listType);
+    // Add filters to URL - list type is now mandatory
+    params.set('listType', newFilters.listType);
 
     // Add sorting to URL
     if (newSortColumn) params.set('sortColumn', newSortColumn);

@@ -490,7 +490,7 @@ const GiftList: React.FC = () => {
 
       // Get all lists and find the one with matching ID
       const response = await authService.executeQuery(
-        () => authService.getLists(1000), // Get a large number to ensure we find the list
+        () => authService.getLists(1000, 'Gift'), // Get a large number to ensure we find the list
         'fetching lists to find list name'
       );
 

@@ -750,13 +750,10 @@ class AuthService {
   @cache({ 
     keyPrefix: 'lists', 
     expirationMs: 6000000, // 100 minutes
-    keyGenerator: (limit: number, listType?: string) => `limit_${limit}_type_${listType || 'none'}`
+    keyGenerator: (limit: number, listType: string) => `limit_${limit}_type_${listType}`
   })
-  async getLists(limit: number = 500, listType?: string): Promise<any> {
-    let url = `/list/v1/lists?limit=${limit}`;
-    if (listType) {
-      url += `&list_type=${encodeURIComponent(listType)}`;
-    }
+  async getLists(limit: number = 500, listType: string): Promise<any> {
+    const url = `/list/v1/lists?limit=${limit}&list_type=${encodeURIComponent(listType)}`;
     return this.apiRequest(url);
   }
 
