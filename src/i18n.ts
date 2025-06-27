@@ -25,7 +25,7 @@ i18n
   .init({
     resources,
     fallbackLng: 'en',
-    debug: true,
+    debug: false,
     lng: 'en', // Force default language
     supportedLngs: ['en', 'fr', 'fr-CA'],
 
