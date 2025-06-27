@@ -133,7 +133,18 @@
       "allStatuses": "Tous les statuts",
       "allSubtypes": "Tous les sous-types",
       "sortBy": "Trier par",
-      "noSorting": "Aucun tri"
+      "noSorting": "Aucun tri",
+      "dateFrom": "Date de début",
+      "dateTo": "Date de fin",
+      "amountFrom": "Montant minimum",
+      "amountTo": "Montant maximum",
+      "constituentId": "ID du constituant",
+      "designation": "Désignation",
+      "campaign": "Campagne",
+      "appeal": "Appel",
+      "acknowledgmentStatus": "Statut d'accusé de réception",
+      "receiptStatus": "Statut du reçu",
+      "isAnonymous": "Anonyme"
     },
     "columns": {
       "id": "ID",
@@ -200,7 +211,8 @@
       "method": "Méthode",
       "checkNumber": "Numéro de chèque",
       "checkDate": "Date"
-    }
+    },
+    "keyboardNavigation": "⌨️ Navigation au clavier : Page Up/Down pour défiler, Home/End pour aller en haut/bas"
   },
   "pdfViewer": {
     "loading": "Chargement du PDF...",
@@ -232,4 +244,4 @@
     "dismiss": "Fermer",
     "autoHide": "Ceci se masquera automatiquement quand le quota se réinitialise"
   }
-} 
+}

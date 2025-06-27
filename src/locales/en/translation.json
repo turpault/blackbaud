@@ -133,7 +133,18 @@
       "allStatuses": "All Statuses",
       "allSubtypes": "All Subtypes",
       "sortBy": "Sort by",
-      "noSorting": "No sorting"
+      "noSorting": "No sorting",
+      "dateFrom": "Date From",
+      "dateTo": "Date To",
+      "amountFrom": "Amount From",
+      "amountTo": "Amount To",
+      "constituentId": "Constituent ID",
+      "designation": "Designation",
+      "campaign": "Campaign",
+      "appeal": "Appeal",
+      "acknowledgmentStatus": "Acknowledgment Status",
+      "receiptStatus": "Receipt Status",
+      "isAnonymous": "Anonymous"
     },
     "columns": {
       "id": "ID",
@@ -200,7 +211,8 @@
       "method": "Method",
       "checkNumber": "Check #",
       "checkDate": "Date"
-    }
+    },
+    "keyboardNavigation": "⌨️ Keyboard Navigation: Page Up/Down to scroll, Home/End to jump to top/bottom"
   },
   "pdfViewer": {
     "loading": "Loading PDF...",
@@ -232,4 +244,4 @@
     "dismiss": "Dismiss",
     "autoHide": "This will automatically hide when the quota resets"
   }
-} 
+}

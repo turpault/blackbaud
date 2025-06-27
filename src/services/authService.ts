@@ -556,17 +556,95 @@ class AuthService {
     }
   }
 
-  // Get gifts from the Gift API with caching
+  // Get gifts with comprehensive filtering and caching
   @cache({ 
     keyPrefix: 'gifts', 
     expirationMs: 24*60*60*1000, // 24 hours
-    keyGenerator: (limit: number, offset: number = 0, listId?: string) => `limit_${limit}_offset_${offset}_listId_${listId || 'none'}`
-  })
-  async getGifts(limit: number = 1000, offset: number = 0, listId?: string): Promise<any> {
-    let url = `/gift/v1/gifts?limit=${limit}&offset=${offset}`;
-    if (listId) {
-      url += `&list_id=${encodeURIComponent(listId)}`;
+    keyGenerator: (limit: number, offset: number, filters: any) => {
+      const filterString = filters ? JSON.stringify(filters) : 'no-filters';
+      return `limit_${limit}_offset_${offset}_filters_${filterString}`;
     }
+  })
+  async getGifts(
+    limit: number = 1000, 
+    offset: number = 0, 
+    filters?: {
+      listId?: string;
+      giftType?: string;
+      giftStatus?: string;
+      dateFrom?: string;
+      dateTo?: string;
+      amountFrom?: number;
+      amountTo?: number;
+      constituentId?: string;
+      designation?: string;
+      campaign?: string;
+      appeal?: string;
+      subtype?: string;
+      acknowledgmentStatus?: string;
+      receiptStatus?: string;
+      isAnonymous?: boolean;
+      sortBy?: string;
+      sortDirection?: 'asc' | 'desc';
+    }
+  ): Promise<any> {
+    let url = `/gift/v1/gifts?limit=${limit}&offset=${offset}`;
+    
+    // Add filter parameters
+    if (filters) {
+      if (filters.listId) {
+        url += `&list_id=${encodeURIComponent(filters.listId)}`;
+      }
+      if (filters.giftType) {
+        url += `&gift_type=${encodeURIComponent(filters.giftType)}`;
+      }
+      if (filters.giftStatus) {
+        url += `&gift_status=${encodeURIComponent(filters.giftStatus)}`;
+      }
+      if (filters.dateFrom) {
+        url += `&date_from=${encodeURIComponent(filters.dateFrom)}`;
+      }
+      if (filters.dateTo) {
+        url += `&date_to=${encodeURIComponent(filters.dateTo)}`;
+      }
+      if (filters.amountFrom !== undefined) {
+        url += `&amount_from=${filters.amountFrom}`;
+      }
+      if (filters.amountTo !== undefined) {
+        url += `&amount_to=${filters.amountTo}`;
+      }
+      if (filters.constituentId) {
+        url += `&constituent_id=${encodeURIComponent(filters.constituentId)}`;
+      }
+      if (filters.designation) {
+        url += `&designation=${encodeURIComponent(filters.designation)}`;
+      }
+      if (filters.campaign) {
+        url += `&campaign=${encodeURIComponent(filters.campaign)}`;
+      }
+      if (filters.appeal) {
+        url += `&appeal=${encodeURIComponent(filters.appeal)}`;
+      }
+      if (filters.subtype) {
+        url += `&subtype=${encodeURIComponent(filters.subtype)}`;
+      }
+      if (filters.acknowledgmentStatus) {
+        url += `&acknowledgment_status=${encodeURIComponent(filters.acknowledgmentStatus)}`;
+      }
+      if (filters.receiptStatus) {
+        url += `&receipt_status=${encodeURIComponent(filters.receiptStatus)}`;
+      }
+      if (filters.isAnonymous !== undefined) {
+        url += `&is_anonymous=${filters.isAnonymous}`;
+      }
+      if (filters.sortBy) {
+        url += `&sort_by=${encodeURIComponent(filters.sortBy)}`;
+        if (filters.sortDirection) {
+          url += `&sort_direction=${filters.sortDirection}`;
+        }
+      }
+    }
+    
     return this.apiRequest(url);
   }
 
@@ -920,6 +998,56 @@ class AuthService {
     this.lastSessionCheck = 0;
     this.sessionCheckPromise = null;
     return this.checkAuthentication();
+  }
+
+  // Clear gift cache
+  clearGiftCache(filters?: any): void {
+    if (filters) {
+      // Clear specific filter combination
+      const filterString = JSON.stringify(filters);
+      const keys = Object.keys(localStorage);
+      const giftKeys = keys.filter(key => 
+        key.startsWith('gifts_') && key.includes(filterString)
+      );
+      giftKeys.forEach(key => localStorage.removeItem(key));
+      console.log(`Cleared ${giftKeys.length} gift cache entries for filters:`, filters);
+    } else {
+      // Clear all gift cache
+      const keys = Object.keys(localStorage);
+      const giftKeys = keys.filter(key => key.startsWith('gifts_'));
+      giftKeys.forEach(key => localStorage.removeItem(key));
+      console.log(`Cleared ${giftKeys.length} gift cache entries`);
+    }
+  }
+
+  // Get gift cache statistics
+  getGiftCacheStats(): { count: number; totalSize: number; filterCombinations: number } {
+    const keys = Object.keys(localStorage);
+    const giftKeys = keys.filter(key => key.startsWith('gifts_'));
+    let totalSize = 0;
+    const filterCombinations = new Set<string>();
+
+    giftKeys.forEach(key => {
+      try {
+        const item = localStorage.getItem(key);
+        if (item) {
+          totalSize += item.length;
+          // Extract filter combination from key
+          const filterMatch = key.match(/filters_(.+)$/);
+          if (filterMatch) {
+            filterCombinations.add(filterMatch[1]);
+          }
+        }
+      } catch (error) {
+        console.warn(`Failed to read gift cache key ${key}:`, error);
+      }
+    });
+
+    return {
+      count: giftKeys.length,
+      totalSize,
+      filterCombinations: filterCombinations.size
+    };
   }
 }
 

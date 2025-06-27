@@ -111,7 +111,18 @@
       "allStatuses": "Tous les statuts",
       "allSubtypes": "Tous les sous-types",
       "sortBy": "Trier par",
-      "noSorting": "Pas de tri"
+      "noSorting": "Pas de tri",
+      "dateFrom": "Date de début",
+      "dateTo": "Date de fin",
+      "amountFrom": "Montant minimum",
+      "amountTo": "Montant maximum",
+      "constituentId": "ID du constituant",
+      "designation": "Désignation",
+      "campaign": "Campagne",
+      "appeal": "Appel",
+      "acknowledgmentStatus": "Statut d'accusé de réception",
+      "receiptStatus": "Statut du reçu",
+      "isAnonymous": "Anonyme"
     },
     "columns": {
       "id": "ID",
@@ -144,7 +155,8 @@
       "loading": "Ça charge le constituant, ça va pas être long !",
       "notFound": "Constituant pas trouvé, il doit être caché quelque part !"
     },
-    "showing": "Y'a {{shown}} dons sur {{total}} au total, mon chum !"
+    "showing": "Y'a {{shown}} dons sur {{total}} au total, mon chum !",
+    "keyboardNavigation": "⌨️ Navigation clavier : Page Up/Down pour défiler, Home/End pour aller en haut ou en bas, mon chum !"
   },
   "pdfViewer": {
     "loading": "Ça charge le PDF, patience !",
@@ -292,4 +304,4 @@
     "cold": "J'ai frette !",
     "hot": "Y fait chaud en masse !"
   }
-} 
+}

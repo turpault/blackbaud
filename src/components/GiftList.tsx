@@ -48,8 +48,21 @@ type SortDirection = 'asc' | 'desc' | null;
 interface Filters {
   listId: string;
   giftType: string;
+  giftStatus: string;
   dateFrom: string;
   dateTo: string;
+  amountFrom: string;
+  amountTo: string;
+  constituentId: string;
+  designation: string;
+  campaign: string;
+  appeal: string;
+  subtype: string;
+  acknowledgmentStatus: string;
+  receiptStatus: string;
+  isAnonymous: string;
+  sortBy: string;
+  sortDirection: 'asc' | 'desc' | '';
 }
 
 // Custom hook for debounced state
@@ -105,6 +118,9 @@ const GiftList: React.FC = () => {
   const [cardsPerRow, setCardsPerRow] = useState<number>(3); // Default 3 cards per row
   const gridGap = 20; // Gap between cards
 
+  // Track the index to jump to after visible range updates
+  const [pendingJumpIndex, setPendingJumpIndex] = useState<number | null>(null);
+
   // Jump to card functionality
   const [jumpToIndex, setJumpToIndex] = useState<string>('');
   const cardRefs = useRef<Map<number, HTMLDivElement>>(new Map());
@@ -113,8 +129,21 @@ const GiftList: React.FC = () => {
   const [immediateFilters, debouncedFilters, setImmediateFilters] = useDebouncedState<Filters>({
     listId: searchParams.get('listId') || '',
     giftType: searchParams.get('giftType') || '',
+    giftStatus: searchParams.get('giftStatus') || '',
     dateFrom: searchParams.get('dateFrom') || '',
-    dateTo: searchParams.get('dateTo') || ''
+    dateTo: searchParams.get('dateTo') || '',
+    amountFrom: searchParams.get('amountFrom') || '',
+    amountTo: searchParams.get('amountTo') || '',
+    constituentId: searchParams.get('constituentId') || '',
+    designation: searchParams.get('designation') || '',
+    campaign: searchParams.get('campaign') || '',
+    appeal: searchParams.get('appeal') || '',
+    subtype: searchParams.get('subtype') || '',
+    acknowledgmentStatus: searchParams.get('acknowledgmentStatus') || '',
+    receiptStatus: searchParams.get('receiptStatus') || '',
+    isAnonymous: searchParams.get('isAnonymous') || '',
+    sortBy: searchParams.get('sortBy') || '',
+    sortDirection: searchParams.get('sortDirection') as SortDirection || ''
   }, 300);
 
   // Use debounced filters for API calls
@@ -134,8 +163,29 @@ const GiftList: React.FC = () => {
     }
 
     try {
+      // Convert string filters to proper types for API
+      const apiFilters = {
+        listId: filters.listId || undefined,
+        giftType: filters.giftType || undefined,
+        giftStatus: filters.giftStatus || undefined,
+        dateFrom: filters.dateFrom || undefined,
+        dateTo: filters.dateTo || undefined,
+        amountFrom: filters.amountFrom ? parseFloat(filters.amountFrom) : undefined,
+        amountTo: filters.amountTo ? parseFloat(filters.amountTo) : undefined,
+        constituentId: filters.constituentId || undefined,
+        designation: filters.designation || undefined,
+        campaign: filters.campaign || undefined,
+        appeal: filters.appeal || undefined,
+        subtype: filters.subtype || undefined,
+        acknowledgmentStatus: filters.acknowledgmentStatus || undefined,
+        receiptStatus: filters.receiptStatus || undefined,
+        isAnonymous: filters.isAnonymous ? filters.isAnonymous === 'true' : undefined,
+        sortBy: filters.sortBy || undefined,
+        sortDirection: filters.sortDirection || undefined
+      };
+
       const response: GiftListResponse = await authService.executeQuery(
-        () => authService.getGifts(1000, 0, filters.listId || undefined),
+        () => authService.getGifts(1000, 0, apiFilters),
         'fetching gifts',
         (errorMsg) => setError(errorMsg)
       );
@@ -157,15 +207,36 @@ const GiftList: React.FC = () => {
         setLoadingMore(false);
       }
     }
-  }, [filters.listId]);
+  }, [filters]);
 
   // Load more gifts function
   const loadMoreGifts = useCallback(async (): Promise<void> => {
     if (loadingMore) return;
     setLoadingMore(true);
     try {
+      // Convert string filters to proper types for API
+      const apiFilters = {
+        listId: filters.listId || undefined,
+        giftType: filters.giftType || undefined,
+        giftStatus: filters.giftStatus || undefined,
+        dateFrom: filters.dateFrom || undefined,
+        dateTo: filters.dateTo || undefined,
+        amountFrom: filters.amountFrom ? parseFloat(filters.amountFrom) : undefined,
+        amountTo: filters.amountTo ? parseFloat(filters.amountTo) : undefined,
+        constituentId: filters.constituentId || undefined,
+        designation: filters.designation || undefined,
+        campaign: filters.campaign || undefined,
+        appeal: filters.appeal || undefined,
+        subtype: filters.subtype || undefined,
+        acknowledgmentStatus: filters.acknowledgmentStatus || undefined,
+        receiptStatus: filters.receiptStatus || undefined,
+        isAnonymous: filters.isAnonymous ? filters.isAnonymous === 'true' : undefined,
+        sortBy: filters.sortBy || undefined,
+        sortDirection: filters.sortDirection || undefined
+      };
+
       const response: GiftListResponse = await authService.executeQuery(
-        () => authService.getGifts(1000, currentOffset, filters.listId),
+        () => authService.getGifts(1000, currentOffset, apiFilters),
         'loading more gifts'
       );
       setGifts(prev => [...prev, ...(response.value || [])]);
@@ -176,7 +247,7 @@ const GiftList: React.FC = () => {
     } finally {
       setLoadingMore(false);
     }
-  }, [loadingMore, currentOffset, filters.listId]);
+  }, [loadingMore, currentOffset, filters]);
 
   // Load gifts on mount and when filters change
   useEffect(() => {
@@ -211,9 +282,19 @@ const GiftList: React.FC = () => {
   const uniqueTypes = useMemo(() => {
     const types = gifts
       .map(gift => gift.type)
-      .filter(type => type && type.trim() !== '')
-      .map(type => type as string);
-    return Array.from(new Set(types)).sort();
+      .filter((type): type is string => !!type)
+      .filter((type, index, arr) => arr.indexOf(type) === index)
+      .sort();
+    return types;
+  }, [gifts]);
+
+  const uniqueStatuses = useMemo(() => {
+    const statuses = gifts
+      .map(gift => gift.gift_status)
+      .filter((status): status is string => !!status)
+      .filter((status, index, arr) => arr.indexOf(status) === index)
+      .sort();
+    return statuses;
   }, [gifts]);
 
   const handleSort = (column: string): void => {
@@ -246,8 +327,20 @@ const GiftList: React.FC = () => {
     const params = new URLSearchParams();
     if (newFilters.listId) params.set('listId', newFilters.listId);
     if (newFilters.giftType) params.set('giftType', newFilters.giftType);
+    if (newFilters.giftStatus) params.set('giftStatus', newFilters.giftStatus);
     if (newFilters.dateFrom) params.set('dateFrom', newFilters.dateFrom);
     if (newFilters.dateTo) params.set('dateTo', newFilters.dateTo);
+    if (newFilters.amountFrom) params.set('amountFrom', newFilters.amountFrom);
+    if (newFilters.amountTo) params.set('amountTo', newFilters.amountTo);
+    if (newFilters.constituentId) params.set('constituentId', newFilters.constituentId);
+    if (newFilters.designation) params.set('designation', newFilters.designation);
+    if (newFilters.campaign) params.set('campaign', newFilters.campaign);
+    if (newFilters.appeal) params.set('appeal', newFilters.appeal);
+    if (newFilters.subtype) params.set('subtype', newFilters.subtype);
+    if (newFilters.acknowledgmentStatus) params.set('acknowledgmentStatus', newFilters.acknowledgmentStatus);
+    if (newFilters.receiptStatus) params.set('receiptStatus', newFilters.receiptStatus);
+    if (newFilters.isAnonymous) params.set('isAnonymous', newFilters.isAnonymous);
+    if (newFilters.sortBy) params.set('sortBy', newFilters.sortBy);
     if (newSortColumn) params.set('sortColumn', newSortColumn);
     if (newSortDirection) params.set('sortDirection', newSortDirection);
     setSearchParams(params);
@@ -260,7 +353,25 @@ const GiftList: React.FC = () => {
   };
 
   const clearFilters = (): void => {
-    const newFilters = { listId: '', giftType: '', dateFrom: '', dateTo: '' };
+    const newFilters: Filters = {
+      listId: '',
+      giftType: '',
+      giftStatus: '',
+      dateFrom: '',
+      dateTo: '',
+      amountFrom: '',
+      amountTo: '',
+      constituentId: '',
+      designation: '',
+      campaign: '',
+      appeal: '',
+      subtype: '',
+      acknowledgmentStatus: '',
+      receiptStatus: '',
+      isAnonymous: '',
+      sortBy: '',
+      sortDirection: '' as const
+    };
     setImmediateFilters(newFilters);
     updateUrlParams(newFilters, sortColumn, sortDirection);
   };
@@ -349,25 +460,43 @@ const GiftList: React.FC = () => {
 
   // Jump to specific card index
   const handleJumpToCard = useCallback((index: number): void => {
-    const cardElement = cardRefs.current.get(index);
-    if (cardElement) {
-      cardElement.scrollIntoView({
-        behavior: 'smooth',
-        block: 'center',
-        inline: 'center'
-      });
-
-      // Add a brief highlight effect
-      cardElement.style.boxShadow = '0 0 20px rgba(0, 123, 255, 0.8)';
-      setTimeout(() => {
-        cardElement.style.boxShadow = '';
-      }, 2000);
-
-      console.log(`Jumped to card ${index + 1}`);
+    // If the card is not in the visible range, update the visible range
+    if (index < visibleRange.start || index > visibleRange.end) {
+      setPendingJumpIndex(index);
+      // Calculate the row and scroll position
+      const row = Math.floor(index / cardsPerRow);
+      const scrollTop = row * (cardHeight + gridGap);
+      if (scrollContainerRef.current) {
+        scrollContainerRef.current.scrollTo({ top: scrollTop, behavior: 'auto' });
+      }
     } else {
-      console.warn(`Card at index ${index} not found`);
+      // If already visible, scroll to it
+      const cardElement = cardRefs.current.get(index);
+      if (cardElement) {
+        cardElement.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' });
+        cardElement.style.boxShadow = '0 0 20px rgba(0, 123, 255, 0.8)';
+        setTimeout(() => { cardElement.style.boxShadow = ''; }, 2000);
+      }
     }
-  }, []);
+  }, [visibleRange, cardsPerRow, cardHeight, gridGap]);
+
+  // Get visible gifts for rendering
+  const visibleGifts = useMemo(() => {
+    return gifts.slice(visibleRange.start, visibleRange.end + 1);
+  }, [gifts, visibleRange]);
+
+  // After visible range updates, if there's a pending jump, scroll to the card
+  useEffect(() => {
+    if (pendingJumpIndex !== null) {
+      const cardElement = cardRefs.current.get(pendingJumpIndex);
+      if (cardElement) {
+        cardElement.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' });
+        cardElement.style.boxShadow = '0 0 20px rgba(0, 123, 255, 0.8)';
+        setTimeout(() => { cardElement.style.boxShadow = ''; }, 2000);
+        setPendingJumpIndex(null);
+      }
+    }
+  }, [visibleGifts, pendingJumpIndex]);
 
   // Handle jump to card form submission
   const handleJumpToSubmit = useCallback((e: React.FormEvent): void => {
@@ -485,11 +614,6 @@ const GiftList: React.FC = () => {
     }
   }, [cardHeight, cardsPerRow, gridGap, gifts.length, calculateVisibleRange]);
 
-  // Get visible gifts for rendering
-  const visibleGifts = useMemo(() => {
-    return gifts.slice(visibleRange.start, visibleRange.end + 1);
-  }, [gifts, visibleRange]);
-
   // Periodically measure average card height for accuracy
   useEffect(() => {
     if (visibleGifts.length > 0 && cardRefs.current.size > 0) {
@@ -505,8 +629,11 @@ const GiftList: React.FC = () => {
   const getCardGridPosition = useCallback((index: number) => {
     const row = Math.floor(index / cardsPerRow);
     const col = index % cardsPerRow;
+    const totalRowWidth = cardsPerRow * zoomLevel + (cardsPerRow - 1) * gridGap;
+    const containerWidth = containerRef.current?.clientWidth || 0;
+    const leftOffset = Math.max(0, (containerWidth - totalRowWidth) / 2);
     const top = row * (cardHeight + gridGap);
-    const left = col * (zoomLevel + gridGap);
+    const left = leftOffset + col * (zoomLevel + gridGap);
     return { top, left, row, col };
   }, [cardsPerRow, cardHeight, gridGap, zoomLevel]);
 
@@ -584,6 +711,17 @@ const GiftList: React.FC = () => {
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
   }, [calculateGridLayout]);
+
+  // Handle refresh with cache clearing
+  const handleRefresh = useCallback(async (): Promise<void> => {
+    // Clear gift cache before fetching fresh data
+    authService.clearGiftCache();
+    console.log('Cleared gift cache before refresh');
+
+    // Reset offset and fetch fresh data
+    setCurrentOffset(0);
+    await fetchGifts(true);
+  }, [fetchGifts]);
 
   if (loading) {
     return (
@@ -785,6 +923,25 @@ const GiftList: React.FC = () => {
         minHeight: "60px"
       }}>
         <h2>🎁 {t('giftList.title')}</h2>
+        <button
+          onClick={handleRefresh}
+          style={{
+            padding: "8px 16px",
+            backgroundColor: "#17a2b8",
+            color: "white",
+            border: "none",
+            borderRadius: "6px",
+            cursor: "pointer",
+            fontSize: "14px",
+            fontWeight: "bold",
+            display: "flex",
+            alignItems: "center",
+            gap: "8px"
+          }}
+          title="Refresh gifts and clear cache"
+        >
+          🔄 Refresh
+        </button>
       </div>
 
       {/* Filter and Sort Controls */}
@@ -818,6 +975,60 @@ const GiftList: React.FC = () => {
               <option key={type} value={type}>{type}</option>
             ))}
           </select>
+        </div>
+
+        <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+          <label style={{ fontWeight: "bold", fontSize: "14px" }}>{t('giftList.filters.status')}:</label>
+          <select
+            value={immediateFilters.giftStatus}
+            onChange={(e) => handleFilterChange('giftStatus', e.target.value)}
+            style={{
+              padding: "6px 10px",
+              border: "1px solid #ced4da",
+              borderRadius: "4px",
+              fontSize: "14px",
+              minWidth: "120px"
+            }}
+          >
+            <option value="">{t('giftList.filters.allStatuses')}</option>
+            {uniqueStatuses.map(status => (
+              <option key={status} value={status}>{status}</option>
+            ))}
+          </select>
+        </div>
+
+        <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+          <label style={{ fontWeight: "bold", fontSize: "14px" }}>{t('giftList.filters.amountFrom')}:</label>
+          <input
+            type="number"
+            value={immediateFilters.amountFrom}
+            onChange={(e) => handleFilterChange('amountFrom', e.target.value)}
+            placeholder="Min amount"
+            style={{
+              padding: "6px 10px",
+              border: "1px solid #ced4da",
+              borderRadius: "4px",
+              fontSize: "14px",
+              width: "100px"
+            }}
+          />
+        </div>
+
+        <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+          <label style={{ fontWeight: "bold", fontSize: "14px" }}>{t('giftList.filters.amountTo')}:</label>
+          <input
+            type="number"
+            value={immediateFilters.amountTo}
+            onChange={(e) => handleFilterChange('amountTo', e.target.value)}
+            placeholder="Max amount"
+            style={{
+              padding: "6px 10px",
+              border: "1px solid #ced4da",
+              borderRadius: "4px",
+              fontSize: "14px",
+              width: "100px"
+            }}
+          />
         </div>
 
         <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
