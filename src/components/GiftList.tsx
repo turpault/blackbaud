@@ -1041,41 +1041,25 @@ const GiftList: React.FC = () => {
         minHeight: "60px"
       }}>
         <div>
-          <h2>🎁 {t('giftList.title')}</h2>
-          {filters.listId && cachedLists[filters.listId] && (
+          <h2>
+            🎁 {t('giftList.title')}
+            {filters.listId && cachedLists[filters.listId] && (
+              <span style={{ fontSize: "0.8em", color: "#666", fontWeight: "normal" }}>
+                {" "}- "{cachedLists[filters.listId].name}"
+              </span>
+            )}
+          </h2>
+          {filters.listId && cachedLists[filters.listId] && cachedLists[filters.listId].description && (
             <div style={{
               fontSize: "14px",
               color: "#666",
               marginTop: "4px",
               fontStyle: "italic"
             }}>
-              List: "{cachedLists[filters.listId].name}"
-              {cachedLists[filters.listId].description && (
-                <span style={{ marginLeft: "8px" }}>
-                  - {cachedLists[filters.listId].description}
-                </span>
-              )}
+              {cachedLists[filters.listId].description}
             </div>
           )}
         </div>
-
-        {/* Keyboard Navigation Indicator */}
-        {isFocused && (
-          <div style={{
-            display: "flex",
-            alignItems: "center",
-            gap: "8px",
-            padding: "6px 12px",
-            backgroundColor: "#d4edda",
-            border: "1px solid #c3e6cb",
-            borderRadius: "6px",
-            fontSize: "12px",
-            color: "#155724",
-            fontWeight: "bold"
-          }}>
-            ⌨️ Keyboard Active
-          </div>
-        )}
 
         {/* Card Size and Jump to Controls */}
         <div style={{ display: "flex", alignItems: "center", gap: "15px" }}>
