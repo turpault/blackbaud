@@ -118,7 +118,12 @@ class AuthService {
     onError?: (error: any, isRateLimit: boolean) => void
   ): Promise<T> {
     try {
-      return await this.withRetry(queryFn);
+      const result = await this.withRetry(queryFn);
+      
+      // Clear quota notification on successful request
+      this.clearQuotaExceeded();
+      
+      return result;
     } catch (error: any) {
       // Enhanced rate limiting error detection (including Blackbaud's 403 Quota Exceeded)
       const isRateLimit = error.response?.status === 429 || 
@@ -222,6 +227,39 @@ class AuthService {
         setTimeout(() => {
           if (!setupQuotaContext()) {
             console.error('❌ Failed to trigger quota notification - context not available after retry');
+          }
+        }, 100);
+      }
+    }
+  }
+
+  // Method to clear quota notification
+  private clearQuotaExceeded(): void {
+    console.log('✅ Quota notification cleared');
+    
+    // This will be set by the app when the service is initialized
+    if ((window as any).__quotaContext) {
+      (window as any).__quotaContext.clearQuotaExceeded();
+      console.log('✅ Quota notification cleared successfully');
+    } else {
+      console.warn('⚠️ Quota context not available - notification may not clear');
+      
+      // Fallback: try to set up the context if it's not available
+      const setupQuotaContext = () => {
+        if ((window as any).__quotaContext) {
+          (window as any).__quotaContext.clearQuotaExceeded();
+          console.log('✅ Quota notification cleared via fallback mechanism');
+          return true;
+        }
+        return false;
+      };
+      
+      // Try immediately
+      if (!setupQuotaContext()) {
+        // If not available, try again after a short delay
+        setTimeout(() => {
+          if (!setupQuotaContext()) {
+            console.error('❌ Failed to clear quota notification - context not available after retry');
           }
         }, 100);
       }
