@@ -1,5 +1,6 @@
 import axios, { AxiosRequestConfig, AxiosResponse } from 'axios';
 import { cache } from '../utils/cacheDecorator';
+import { attachmentQueue } from '../utils/concurrentQueue';
 import { 
   OAuthSessionResponse, 
   SessionInfo, 
@@ -445,7 +446,25 @@ class AuthService {
     keyGenerator: (giftId: string) => `${giftId}`
   })
   async getGiftAttachments(giftId: string): Promise<any> {
-    return this.apiRequest(`/gift/v1/gifts/${giftId}/attachments`);
+    const taskId = `gift-attachments-${giftId}-${Date.now()}`;
+    
+    return new Promise((resolve, reject) => {
+      attachmentQueue.add({
+        id: taskId,
+        type: 'gift-attachments',
+        execute: async () => {
+          return await this.apiRequest(`/gift/v1/gifts/${giftId}/attachments`);
+        },
+        onSuccess: (result) => {
+          console.log(`✅ Gift attachments for ${giftId} completed via queue`);
+          resolve(result);
+        },
+        onError: (error) => {
+          console.error(`❌ Gift attachments for ${giftId} failed via queue:`, error);
+          reject(error);
+        }
+      });
+    });
   }
 
   // Get lists from the List API
