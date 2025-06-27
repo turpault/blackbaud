@@ -131,6 +131,10 @@ const GiftList: React.FC = () => {
   // Focus state for keyboard navigation
   const [isFocused, setIsFocused] = useState<boolean>(false);
 
+  // Scroll state tracking to prevent fetching during scroll
+  const [isScrolling, setIsScrolling] = useState<boolean>(false);
+  const scrollTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
   // Debounced filters for better performance
   const [immediateFilters, debouncedFilters, setImmediateFilters] = useDebouncedState<Filters>({
     listId: searchParams.get('listId') || '',
@@ -679,6 +683,19 @@ const GiftList: React.FC = () => {
 
   // Handle scroll events for virtual scrolling
   const handleScroll = useCallback(() => {
+    // Set scrolling state to true
+    setIsScrolling(true);
+
+    // Clear existing timeout
+    if (scrollTimeoutRef.current) {
+      clearTimeout(scrollTimeoutRef.current);
+    }
+
+    // Set timeout to mark scrolling as finished after 150ms of no scroll events
+    scrollTimeoutRef.current = setTimeout(() => {
+      setIsScrolling(false);
+    }, 150);
+
     requestAnimationFrame(calculateVisibleRange);
   }, [calculateVisibleRange]);
 
@@ -687,7 +704,13 @@ const GiftList: React.FC = () => {
     const scrollContainer = scrollContainerRef.current;
     if (scrollContainer) {
       scrollContainer.addEventListener('scroll', handleScroll, { passive: true });
-      return () => scrollContainer.removeEventListener('scroll', handleScroll);
+      return () => {
+        scrollContainer.removeEventListener('scroll', handleScroll);
+        // Cleanup scroll timeout
+        if (scrollTimeoutRef.current) {
+          clearTimeout(scrollTimeoutRef.current);
+        }
+      };
     }
   }, [handleScroll]);
 
@@ -1471,6 +1494,7 @@ const GiftList: React.FC = () => {
                         zoomLevel={zoomLevel}
                         cardNumber={actualIndex + 1}
                         totalCount={totalCount}
+                        isScrolling={isScrolling}
                       />
                     </div>
                   );

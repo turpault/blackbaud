@@ -53,6 +53,7 @@ interface GiftCardProps {
   zoomLevel?: number;
   cardNumber?: number;
   totalCount?: number;
+  isScrolling?: boolean;
 }
 
 const GiftCard: React.FC<GiftCardProps> = React.memo(({
@@ -65,7 +66,8 @@ const GiftCard: React.FC<GiftCardProps> = React.memo(({
   formatDate,
   zoomLevel = 500,
   cardNumber,
-  totalCount
+  totalCount,
+  isScrolling = false
 }) => {
   const { t } = useTranslation();
   const isExpanded = expandedRows.has(gift.id);
@@ -115,6 +117,7 @@ const GiftCard: React.FC<GiftCardProps> = React.memo(({
               <ConstituentInfo
                 constituentId={gift.constituent_id}
                 onQueueConstituentLoad={() => { }} // Not needed anymore as component handles its own loading
+                isScrolling={isScrolling}
               />
             </h3>
             <p style={{
@@ -212,6 +215,7 @@ const GiftCard: React.FC<GiftCardProps> = React.memo(({
             onHandlePdfLoaded={onHandlePdfLoaded}
             onHandleImageError={onHandleImageError}
             zoomLevel={zoomLevel}
+            isScrolling={isScrolling}
           />
         </div>
       </div>

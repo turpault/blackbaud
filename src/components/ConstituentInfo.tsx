@@ -5,15 +5,16 @@ import type { ConstituentInfo as ConstituentInfoType } from '../types/auth';
 interface ConstituentInfoProps {
   constituentId: string | undefined;
   onQueueConstituentLoad: (constituentId: string) => void;
+  isScrolling?: boolean;
 }
 
-const ConstituentInfo: React.FC<ConstituentInfoProps> = React.memo(({ constituentId, onQueueConstituentLoad }) => {
+const ConstituentInfo: React.FC<ConstituentInfoProps> = React.memo(({ constituentId, onQueueConstituentLoad, isScrolling = false }) => {
   const [constituent, setConstituent] = useState<ConstituentInfoType | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(false);
 
-  // Load constituent when component mounts
+  // Load constituent when component mounts, but not during scrolling
   useEffect(() => {
-    if (!constituentId) return;
+    if (!constituentId || isScrolling) return;
 
     const loadConstituent = async () => {
       setIsLoading(true);
@@ -31,7 +32,7 @@ const ConstituentInfo: React.FC<ConstituentInfoProps> = React.memo(({ constituen
     };
 
     loadConstituent();
-  }, [constituentId]); // Only depend on constituentId, not constituent
+  }, [constituentId, isScrolling]); // Add isScrolling to dependencies
 
   if (!constituentId) {
     return <span style={{ color: "#6c757d" }}>No constituent</span>;

@@ -20,9 +20,6 @@ class ApiService {
     // Create a limiter instance for this service
     this.concurrencyLimiter = createConcurrencyLimiter({
       maxConcurrent: 3,
-      onQueueFull: (functionName) => {
-        console.warn(`Queue full for ${functionName}`);
-      },
       onError: (functionName, error) => {
         console.error(`Error in ${functionName}:`, error);
       }
@@ -77,9 +74,6 @@ class AdvancedApiService {
   constructor() {
     this.limiter = createConcurrencyLimiter({
       maxConcurrent: 4,
-      onQueueFull: (functionName) => {
-        console.error(`🚫 Queue overflow for ${functionName} - consider increasing maxConcurrent`);
-      },
       onError: (functionName, error) => {
         console.error(`❌ Error in ${functionName}:`, error.message);
       }

@@ -1,7 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { getCacheStats, clearCache, cleanExpiredCache } from "../utils/cacheDecorator";
-import { useTranslation } from "react-i18next";
-import authService from "../services/authService";
 
 interface CacheStatsData {
   count: number;

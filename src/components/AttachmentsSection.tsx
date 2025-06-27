@@ -24,6 +24,7 @@ interface AttachmentsSectionProps {
   onHandlePdfLoaded: (pdfId: string) => void;
   onHandleImageError: (attachmentId: string) => void;
   zoomLevel?: number;
+  isScrolling?: boolean;
 }
 
 const AttachmentsSection: React.FC<AttachmentsSectionProps> = React.memo(({
@@ -31,16 +32,17 @@ const AttachmentsSection: React.FC<AttachmentsSectionProps> = React.memo(({
   isExpanded,
   onHandlePdfLoaded,
   onHandleImageError,
-  zoomLevel = 500
+  zoomLevel = 500,
+  isScrolling = false
 }) => {
   const { t } = useTranslation();
   const [attachments, setAttachments] = useState<GiftAttachment[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [imageErrors, setImageErrors] = useState<Set<string>>(new Set());
 
-  // Load attachments when component mounts or when expanded
+  // Load attachments when component mounts or when expanded, but not during scrolling
   useEffect(() => {
-    if (attachments.length > 0 || isLoading) return;
+    if (attachments.length > 0 || isLoading || isScrolling) return;
 
     const loadAttachments = async () => {
       setIsLoading(true);
@@ -62,7 +64,7 @@ const AttachmentsSection: React.FC<AttachmentsSectionProps> = React.memo(({
     };
 
     loadAttachments();
-  }, [giftId, attachments.length, isLoading]);
+  }, [giftId, attachments.length, isLoading, isScrolling]); // Add isScrolling to dependencies
 
   const isImageFile = (attachment: GiftAttachment): boolean => {
     if (!attachment.url) return false;
