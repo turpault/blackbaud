@@ -66,12 +66,27 @@ class AuthService {
           throw error;
         }
         
-        // Calculate delay with exponential backoff and jitter
-        const backoffDelay = baseDelayMs * Math.pow(2, attempt);
-        const jitter = Math.random() * 0.1 * backoffDelay; // 10% jitter
-        const totalDelay = backoffDelay + jitter;
+        // Get retry-after value from the server response
+        const retryAfter = error.response?.headers?.['retry-after'] || 
+                          error.response?.headers?.['Retry-After'] ||
+                          error.response?.data?.retry_after ||
+                          error.response?.data?.retryAfter ||
+                          error.retryAfter;
         
-        console.warn(`429 Rate Limited, retrying in ${Math.round(totalDelay)}ms... (attempt ${attempt + 1}/${maxRetries + 1})`);
+        let totalDelay: number;
+        
+        if (retryAfter) {
+          // Use the server's retry-after value (convert to milliseconds)
+          const retrySeconds = parseInt(retryAfter);
+          totalDelay = retrySeconds * 1000;
+          console.warn(`429 Rate Limited, using server retry-after: ${retrySeconds}s (attempt ${attempt + 1}/${maxRetries + 1})`);
+        } else {
+          // Fall back to exponential backoff if no retry-after provided
+          const backoffDelay = baseDelayMs * Math.pow(2, attempt);
+          const jitter = Math.random() * 0.1 * backoffDelay; // 10% jitter
+          totalDelay = backoffDelay + jitter;
+          console.warn(`429 Rate Limited, using exponential backoff: ${Math.round(totalDelay)}ms (attempt ${attempt + 1}/${maxRetries + 1})`);
+        }
         
         // Wait before retrying
         await new Promise(resolve => setTimeout(resolve, totalDelay));
