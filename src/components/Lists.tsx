@@ -100,15 +100,9 @@ const Lists: React.FC = () => {
     }
   }, [filters.listType]);
 
+  // Single effect to handle both initial load and filter changes
   useEffect(() => {
     fetchLists();
-  }, [fetchLists]);
-
-  // Refetch lists when list type filter changes
-  useEffect(() => {
-    if (filters.listType !== '') {
-      fetchLists();
-    }
   }, [filters.listType, fetchLists]);
 
   const loadMoreLists = async (): Promise<void> => {
