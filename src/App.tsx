@@ -139,7 +139,6 @@ const AppContent: React.FC = () => {
 
   return (
     <>
-      <LanguageSelector />
       <Suspense fallback={<LoadingFallback message={t('common.loadingContent')} />}>
         <Routes>
           <Route

@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { getCacheStats, clearCache, cleanExpiredCache } from "../utils/cacheDecorator";
+import QueueManager from "./QueueManager";
 
 interface CacheStatsData {
   count: number;
@@ -37,12 +38,12 @@ const CacheStatistics: React.FC = () => {
 
   useEffect(() => {
     updateStats();
-    
+
     let interval: NodeJS.Timeout | null = null;
     if (autoRefresh) {
       interval = setInterval(updateStats, refreshInterval);
     }
-    
+
     return () => {
       if (interval) clearInterval(interval);
     };
@@ -168,7 +169,7 @@ const CacheStatistics: React.FC = () => {
             🔄 Refresh Now
           </button>
         </div>
-        
+
         <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
           <button style={dangerButtonStyle} onClick={() => handleClearCache()}>
             🗑️ Clear All Cache
@@ -204,7 +205,7 @@ const CacheStatistics: React.FC = () => {
           <div>
             <h5>⏰ Cache Age Range</h5>
             <p style={{ fontSize: "12px", margin: "5px 0" }}>
-              <strong>Oldest:</strong> {formatDate(globalStats.oldestEntry)}<br/>
+              <strong>Oldest:</strong> {formatDate(globalStats.oldestEntry)}<br />
               <strong>Newest:</strong> {formatDate(globalStats.newestEntry)}
             </p>
           </div>
@@ -276,48 +277,48 @@ const CacheStatistics: React.FC = () => {
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(250px, 1fr))", gap: "20px" }}>
           <div>
             <h5>📊 Hit Rate Estimation</h5>
-            <div style={{ 
-              padding: "10px", 
-              borderRadius: "4px", 
+            <div style={{
+              padding: "10px",
+              borderRadius: "4px",
               backgroundColor: globalStats.count > 0 ? "#d4edda" : "#f8d7da",
               border: globalStats.count > 0 ? "1px solid #c3e6cb" : "1px solid #f5c6cb"
             }}>
               <p style={{ margin: 0 }}>
-                {globalStats.count > 0 
+                {globalStats.count > 0
                   ? `✅ Active caching with ${globalStats.count} entries`
                   : "❌ No cache entries found"
                 }
               </p>
             </div>
           </div>
-          
+
           <div>
             <h5>🗄️ Storage Efficiency</h5>
-            <div style={{ 
-              padding: "10px", 
-              borderRadius: "4px", 
+            <div style={{
+              padding: "10px",
+              borderRadius: "4px",
               backgroundColor: globalStats.totalSize < 1024 * 1024 ? "#d4edda" : "#fff3cd", // Green if < 1MB, yellow if larger
               border: globalStats.totalSize < 1024 * 1024 ? "1px solid #c3e6cb" : "1px solid #ffeaa7"
             }}>
               <p style={{ margin: 0 }}>
-                {globalStats.totalSize < 1024 * 1024 
+                {globalStats.totalSize < 1024 * 1024
                   ? `✅ Efficient storage usage`
                   : "⚠️ Consider cleaning old cache"
                 }
               </p>
             </div>
           </div>
-          
+
           <div>
             <h5>🧹 Cache Hygiene</h5>
-            <div style={{ 
-              padding: "10px", 
-              borderRadius: "4px", 
+            <div style={{
+              padding: "10px",
+              borderRadius: "4px",
               backgroundColor: globalStats.expiredCount === 0 ? "#d4edda" : "#f8d7da",
               border: globalStats.expiredCount === 0 ? "1px solid #c3e6cb" : "1px solid #f5c6cb"
             }}>
               <p style={{ margin: 0 }}>
-                {globalStats.expiredCount === 0 
+                {globalStats.expiredCount === 0
                   ? "✅ No expired entries"
                   : `❌ ${globalStats.expiredCount} expired entries need cleaning`
                 }
@@ -337,28 +338,28 @@ const CacheStatistics: React.FC = () => {
             <p><strong>Entries:</strong> {prefixStats.gifts?.count || 0}</p>
             <p><strong>Size:</strong> {formatBytes(prefixStats.gifts?.totalSize || 0)}</p>
           </div>
-          
+
           <div style={{ padding: "15px", backgroundColor: "white", borderRadius: "4px", border: "1px solid #dee2e6" }}>
             <h6>📎 Gift Attachments</h6>
             <p><strong>Cache Duration:</strong> 24 hours</p>
             <p><strong>Entries:</strong> {prefixStats.getGiftAttachments?.count || 0}</p>
             <p><strong>Size:</strong> {formatBytes(prefixStats.getGiftAttachments?.totalSize || 0)}</p>
           </div>
-          
+
           <div style={{ padding: "15px", backgroundColor: "white", borderRadius: "4px", border: "1px solid #dee2e6" }}>
             <h6>📝 Lists API</h6>
             <p><strong>Cache Duration:</strong> 100 minutes</p>
             <p><strong>Entries:</strong> {prefixStats.lists?.count || 0}</p>
             <p><strong>Size:</strong> {formatBytes(prefixStats.lists?.totalSize || 0)}</p>
           </div>
-          
+
           <div style={{ padding: "15px", backgroundColor: "white", borderRadius: "4px", border: "1px solid #dee2e6" }}>
             <h6>🔍 Queries API</h6>
             <p><strong>Cache Duration:</strong> 15 minutes</p>
             <p><strong>Entries:</strong> {prefixStats.queries?.count || 0}</p>
             <p><strong>Size:</strong> {formatBytes(prefixStats.queries?.totalSize || 0)}</p>
           </div>
-          
+
           <div style={{ padding: "15px", backgroundColor: "white", borderRadius: "4px", border: "1px solid #dee2e6" }}>
             <h6>👤 Constituents API</h6>
             <p><strong>Cache Duration:</strong> 24 hours</p>
@@ -366,6 +367,11 @@ const CacheStatistics: React.FC = () => {
             <p><strong>Size:</strong> {formatBytes(prefixStats.getConstituent?.totalSize || 0)}</p>
           </div>
         </div>
+      </div>
+
+      {/* Queue Manager */}
+      <div style={cardStyle}>
+        <QueueManager showDetails={true} />
       </div>
     </div>
   );

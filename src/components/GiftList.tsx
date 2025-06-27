@@ -3,7 +3,6 @@ import { useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import authService from "../services/authService";
 import type { ConstituentInfo } from "../types/auth";
-import QueueManager from "./QueueManager";
 import LazyLoadingStats from "./LazyLoadingStats";
 import GiftCard from "./GiftCard";
 
@@ -1280,40 +1279,8 @@ const GiftList: React.FC = () => {
               </div>
             </div>
           </div>
-
-          {/* Virtual Scrolling Info */}
-          <div style={{
-            marginTop: "10px",
-            padding: "8px 12px",
-            backgroundColor: "#e3f2fd",
-            border: "1px solid #bbdefb",
-            borderRadius: "4px",
-            fontSize: "12px",
-            color: "#1565c0",
-            textAlign: "center"
-          }}>
-            Virtual scrolling: Showing cards {visibleRange.start + 1}-{visibleRange.end + 1} of {gifts.length}
-            (Grid: {cardsPerRow} cards per row, Card height: {cardHeight}px, Total height: {Math.round(containerHeight / 1000)}k pixels)
-          </div>
-
-          {/* Keyboard Navigation Instructions */}
-          <div style={{
-            marginTop: "8px",
-            padding: "8px 12px",
-            backgroundColor: "#fff3cd",
-            border: "1px solid #ffeaa7",
-            borderRadius: "4px",
-            fontSize: "12px",
-            color: "#856404",
-            textAlign: "center"
-          }}>
-            ⌨️ Keyboard Navigation: Page Up/Down to scroll, Home/End to jump to top/bottom
-          </div>
         </>
       )}
-
-      {/* Queue Manager */}
-      <QueueManager showDetails={true} />
 
       {/* PDF Loading Statistics */}
       <LazyLoadingStats
@@ -1322,124 +1289,6 @@ const GiftList: React.FC = () => {
         pendingPdfs={pdfStats.pendingPdfs}
         showDetails={true}
       />
-
-      {/* CSS Styles for virtual scrolling */}
-      <style>{`
-        @keyframes spin {
-          0% { transform: rotate(0deg); }
-          100% { transform: rotate(360deg); }
-        }
-        
-        .gift-card-wrapper {
-          transition: all 0.3s ease-in-out;
-          transform: translateZ(0);
-          will-change: transform;
-          opacity: 1;
-          animation: fadeIn 0.3s ease-in-out;
-          box-sizing: border-box;
-        }
-        
-        .gift-card-wrapper:hover {
-          transform: translateY(-2px) translateZ(0);
-          z-index: 10;
-        }
-        
-        .gift-card {
-          transition: all 0.2s ease-in-out;
-          transform: translateZ(0);
-          will-change: transform;
-          min-height: 200px;
-          width: 100%;
-          box-sizing: border-box;
-          background: white;
-          border-radius: 8px;
-          box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-        }
-        
-        .gift-card:hover {
-          box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
-        }
-        
-        .loading-placeholder {
-          height: 18px;
-          background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
-          background-size: 200% 100%;
-          animation: loading 1.5s infinite;
-          border-radius: 4px;
-          min-width: 120px;
-          display: inline-block;
-        }
-        
-        @keyframes loading {
-          0% { background-position: 200% 0; }
-          100% { background-position: -200% 0; }
-        }
-        
-        .constituent-name {
-          min-height: 24px;
-          display: flex;
-          align-items: center;
-          height: 24px;
-          overflow: hidden;
-        }
-
-        .constituent-name h3 {
-          margin: 0;
-          line-height: 24px;
-          height: 24px;
-          overflow: hidden;
-          text-overflow: ellipsis;
-          white-space: nowrap;
-        }
-
-        @keyframes fadeIn {
-          from {
-            opacity: 0;
-            transform: translateY(10px);
-          }
-          to {
-            opacity: 1;
-            transform: translateY(0);
-          }
-        }
-        
-        /* Virtual scrolling optimizations */
-        .gift-card-wrapper {
-          contain: layout style paint;
-        }
-        
-        /* Print styles for complete view */
-        @media print {
-          body {
-            background: white !important;
-            margin: 0 !important;
-            padding: 0 !important;
-          }
-          
-          .gift-card-wrapper {
-            break-inside: avoid;
-            page-break-inside: avoid;
-          }
-          
-          .gift-card {
-            break-inside: avoid;
-            page-break-inside: avoid;
-            box-shadow: none !important;
-            border: 1px solid #000 !important;
-          }
-          
-          /* Hide non-essential elements when printing */
-          button, select, input {
-            display: none !important;
-          }
-          
-          /* Ensure text is readable */
-          * {
-            color: black !important;
-            background: white !important;
-          }
-        }
-      `}</style>
     </div>
   );
 };
