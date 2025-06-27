@@ -85,13 +85,13 @@ const Dashboard: React.FC<DashboardProps> = ({ sessionInfo }) => {
     }
   };
 
-  const handleMouseOver = (e: React.MouseEvent<HTMLButtonElement>): void => {
-    const target = e.target as HTMLButtonElement;
+  const handleMouseOver = (e: React.MouseEvent<HTMLElement>): void => {
+    const target = e.target as HTMLElement;
     target.style.opacity = "0.8";
   };
 
-  const handleMouseOut = (e: React.MouseEvent<HTMLButtonElement>): void => {
-    const target = e.target as HTMLButtonElement;
+  const handleMouseOut = (e: React.MouseEvent<HTMLElement>): void => {
+    const target = e.target as HTMLElement;
     target.style.opacity = "1";
   };
 
@@ -105,21 +105,34 @@ const Dashboard: React.FC<DashboardProps> = ({ sessionInfo }) => {
   };
 
   const headerStyle: React.CSSProperties = {
-    textAlign: "center",
-    marginBottom: "30px",
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: "20px",
     color: "#333",
+    paddingBottom: "15px",
+    borderBottom: "1px solid #dee2e6",
+  };
+
+  const titleSectionStyle: React.CSSProperties = {
+    flex: 1,
   };
 
   const buttonStyle: React.CSSProperties = {
     background: "linear-gradient(45deg, #ff6b6b, #ee5a24)",
     border: "none",
-    borderRadius: "20px",
+    borderRadius: "15px",
     color: "white",
-    padding: "10px 20px",
-    fontSize: "14px",
+    padding: "8px 16px",
+    fontSize: "12px",
     cursor: "pointer",
     transition: "all 0.3s ease",
-    float: "right",
+  };
+
+  const logoutButtonStyle: React.CSSProperties = {
+    ...buttonStyle,
+    background: "linear-gradient(45deg, #74b9ff, #0984e3)",
+    marginRight: "8px",
   };
 
   const tabContainerStyle: React.CSSProperties = {
@@ -148,18 +161,16 @@ const Dashboard: React.FC<DashboardProps> = ({ sessionInfo }) => {
   return (
     <div style={containerStyle}>
       <div style={headerStyle}>
-        <h1>{t('dashboard.title')}</h1>
-        <p>{t('dashboard.subtitle')}</p>
-        <div style={{ float: "right", display: "flex", gap: "10px" }}>
+        <div style={titleSectionStyle}>
+          <h1 style={{ margin: "0 0 4px 0", fontSize: "24px" }}>{t('dashboard.title')}</h1>
+          <p style={{ margin: 0, fontSize: "14px", color: "#666" }}>{t('dashboard.subtitle')}</p>
+        </div>
+        <div style={{ display: "flex", gap: "10px" }}>
           <Link
             to="/logout"
-            style={{
-              ...buttonStyle,
-              textDecoration: "none",
-              background: "linear-gradient(45deg, #74b9ff, #0984e3)",
-            }}
-            onMouseOver={(e) => (e.currentTarget.style.opacity = "0.8")}
-            onMouseOut={(e) => (e.currentTarget.style.opacity = "1")}
+            style={logoutButtonStyle}
+            onMouseOver={handleMouseOver}
+            onMouseOut={handleMouseOut}
           >
             {t('dashboard.logoutPage')}
           </Link>
@@ -173,7 +184,6 @@ const Dashboard: React.FC<DashboardProps> = ({ sessionInfo }) => {
             {t('dashboard.quickLogout')}
           </button>
         </div>
-        <div style={{ clear: "both" }}></div>
       </div>
 
       {/* Tab Navigation */}
