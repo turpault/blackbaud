@@ -19,6 +19,9 @@ export interface CachedResult<T> {
   expiresAt: number;
 }
 
+// Global promise memoization map to handle parallel calls
+const pendingPromises = new Map<string, Promise<any>>();
+
 /**
  * Decorator function for memoizing and caching method results to localStorage
  * 
@@ -66,6 +69,15 @@ export function cache<T>(options: CacheOptions = {}) {
         console.log(`[Cache] Checking cache for key: ${cacheKey}`);
       }
 
+      // Check if there's already a pending promise for this key
+      const pendingPromise = pendingPromises.get(cacheKey);
+      if (pendingPromise) {
+        if (debug) {
+          console.log(`[Cache] ⏳ Reusing existing promise for key: ${cacheKey}`);
+        }
+        return pendingPromise;
+      }
+
       // Try to get from cache first
       try {
         const cachedResult = await getCachedResult<T>(cacheKey, debug);
@@ -87,29 +99,46 @@ export function cache<T>(options: CacheOptions = {}) {
       }
 
       // Cache miss or expired - fetch fresh data
-      try {
-        const result: T = await originalMethod.apply(this, args);
-        
-        // Cache the result
+      // Create a promise for this operation to handle parallel calls
+      const operationPromise = (async (): Promise<T> => {
         try {
-          await setCachedResult(cacheKey, result, expirationMs, debug);
-          if (debug) {
-            console.log(`[Cache] ✅ Successfully cached result for key: ${cacheKey}`);
+          const result: T = await originalMethod.apply(this, args);
+          
+          // Cache the result
+          try {
+            await setCachedResult(cacheKey, result, expirationMs, debug);
+            if (debug) {
+              console.log(`[Cache] ✅ Successfully cached result for key: ${cacheKey}`);
+            }
+          } catch (cacheError) {
+            if (debug) {
+              console.warn(`[Cache] ❌ Failed to cache result for key ${cacheKey}:`, cacheError);
+            }
+            // Don't fail the request if caching fails
           }
-        } catch (cacheError) {
+          
+          return result;
+        } catch (error) {
           if (debug) {
-            console.warn(`[Cache] ❌ Failed to cache result for key ${cacheKey}:`, cacheError);
+            console.error(`[Cache] Method execution failed for key ${cacheKey}:`, error);
           }
-          // Don't fail the request if caching fails
+          throw error;
+        } finally {
+          // Remove the promise from pending promises
+          pendingPromises.delete(cacheKey);
+          if (debug) {
+            console.log(`[Cache] Removed promise for key: ${cacheKey} from pending promises`);
+          }
         }
-        
-        return result;
-      } catch (error) {
-        if (debug) {
-          console.error(`[Cache] Method execution failed for key ${cacheKey}:`, error);
-        }
-        throw error;
+      })();
+
+      // Store the promise for parallel call handling
+      pendingPromises.set(cacheKey, operationPromise);
+      if (debug) {
+        console.log(`[Cache] Added promise for key: ${cacheKey} to pending promises (total: ${pendingPromises.size})`);
       }
+
+      return operationPromise;
     };
 
     return descriptor;
@@ -225,4 +254,38 @@ export async function manualCache<T>(
  */
 export async function manualGetCache<T>(key: string): Promise<T | null> {
   return await getCachedResult<T>(key);
+}
+
+/**
+ * Get statistics about pending promises (for debugging)
+ */
+export function getPendingPromisesStats(): { count: number; keys: string[] } {
+  return {
+    count: pendingPromises.size,
+    keys: Array.from(pendingPromises.keys())
+  };
+}
+
+/**
+ * Clear all pending promises (useful for cleanup or debugging)
+ */
+export function clearPendingPromises(): number {
+  const count = pendingPromises.size;
+  pendingPromises.clear();
+  return count;
+}
+
+/**
+ * Clear pending promises for a specific key prefix
+ */
+export function clearPendingPromisesByPrefix(prefix: string): number {
+  let count = 0;
+  const keys = Array.from(pendingPromises.keys());
+  for (const key of keys) {
+    if (key.startsWith(prefix)) {
+      pendingPromises.delete(key);
+      count++;
+    }
+  }
+  return count;
 } 
