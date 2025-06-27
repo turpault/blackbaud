@@ -892,28 +892,6 @@ const GiftList: React.FC = () => {
       minHeight: "600px",
       position: "relative"
     }}>
-      {/* Card Count Display */}
-      {gifts.length > 0 && (
-        <div style={{
-          marginBottom: "20px",
-          padding: "12px 16px",
-          backgroundColor: "#e3f2fd",
-          border: "1px solid #bbdefb",
-          borderRadius: "8px",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          color: "#1565c0"
-        }}>
-          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-            <span style={{ fontSize: "16px" }}>📊</span>
-            <span style={{ fontWeight: "bold" }}>
-              Showing {gifts.length.toLocaleString()} of {totalCount.toLocaleString()} cards
-            </span>
-          </div>
-        </div>
-      )}
-
       <div style={{
         display: "flex",
         justifyContent: "space-between",
@@ -923,25 +901,87 @@ const GiftList: React.FC = () => {
         minHeight: "60px"
       }}>
         <h2>🎁 {t('giftList.title')}</h2>
-        <button
-          onClick={handleRefresh}
-          style={{
-            padding: "8px 16px",
-            backgroundColor: "#17a2b8",
-            color: "white",
-            border: "none",
-            borderRadius: "6px",
-            cursor: "pointer",
-            fontSize: "14px",
-            fontWeight: "bold",
-            display: "flex",
-            alignItems: "center",
-            gap: "8px"
-          }}
-          title="Refresh gifts and clear cache"
-        >
-          🔄 Refresh
-        </button>
+
+        {/* Card Size and Jump to Controls */}
+        <div style={{ display: "flex", alignItems: "center", gap: "15px" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+            <label style={{ fontWeight: "bold", fontSize: "14px" }}>{t('giftList.cardSize')}:</label>
+            <select
+              value={zoomLevel}
+              onChange={(e) => setZoomLevel(Number(e.target.value))}
+              style={{
+                padding: "6px 10px",
+                border: "1px solid #ced4da",
+                borderRadius: "4px",
+                fontSize: "14px",
+                minWidth: "120px"
+              }}
+            >
+              <option value={300}>{t('giftList.cardSizes.small')}</option>
+              <option value={400}>{t('giftList.cardSizes.medium')}</option>
+              <option value={500}>{t('giftList.cardSizes.large')}</option>
+              <option value={600}>{t('giftList.cardSizes.extraLarge')}</option>
+              <option value={700}>{t('giftList.cardSizes.huge')}</option>
+            </select>
+          </div>
+
+          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+            <label style={{ fontWeight: "bold", fontSize: "14px" }}>{t('giftList.jumpToCard.label')}:</label>
+            <form onSubmit={handleJumpToSubmit} style={{ display: "flex", alignItems: "center", gap: "4px" }}>
+              <input
+                type="number"
+                value={jumpToIndex}
+                onChange={(e) => setJumpToIndex(e.target.value)}
+                placeholder={t('giftList.jumpToCard.placeholder')}
+                min="1"
+                max={gifts.length}
+                style={{
+                  padding: "6px 10px",
+                  border: "1px solid #ced4da",
+                  borderRadius: "4px",
+                  fontSize: "14px",
+                  width: "80px"
+                }}
+              />
+              <button
+                type="submit"
+                style={{
+                  padding: "6px 12px",
+                  backgroundColor: "#28a745",
+                  color: "white",
+                  border: "none",
+                  borderRadius: "4px",
+                  cursor: "pointer",
+                  fontSize: "12px",
+                  fontWeight: "bold"
+                }}
+                title={`${t('giftList.jumpToCard.label')} (1-${gifts.length})`}
+              >
+                🎯
+              </button>
+            </form>
+          </div>
+
+          <button
+            onClick={handleRefresh}
+            style={{
+              padding: "8px 16px",
+              backgroundColor: "#17a2b8",
+              color: "white",
+              border: "none",
+              borderRadius: "6px",
+              cursor: "pointer",
+              fontSize: "14px",
+              fontWeight: "bold",
+              display: "flex",
+              alignItems: "center",
+              gap: "8px"
+            }}
+            title="Refresh gifts and clear cache"
+          >
+            🔄 Refresh
+          </button>
+        </div>
       </div>
 
       {/* Filter and Sort Controls */}
@@ -1126,65 +1166,6 @@ const GiftList: React.FC = () => {
           {gifts.length !== totalCount && (
             <span>{t('giftList.showing', { shown: gifts.length, total: totalCount.toLocaleString() })}</span>
           )}
-        </div>
-
-        <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-          <label style={{ fontWeight: "bold", fontSize: "14px" }}>{t('giftList.cardSize')}:</label>
-          <select
-            value={zoomLevel}
-            onChange={(e) => setZoomLevel(Number(e.target.value))}
-            style={{
-              padding: "6px 10px",
-              border: "1px solid #ced4da",
-              borderRadius: "4px",
-              fontSize: "14px",
-              minWidth: "120px"
-            }}
-          >
-            <option value={300}>{t('giftList.cardSizes.small')}</option>
-            <option value={400}>{t('giftList.cardSizes.medium')}</option>
-            <option value={500}>{t('giftList.cardSizes.large')}</option>
-            <option value={600}>{t('giftList.cardSizes.extraLarge')}</option>
-            <option value={700}>{t('giftList.cardSizes.huge')}</option>
-          </select>
-        </div>
-
-        {/* Jump to Card Control */}
-        <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-          <label style={{ fontWeight: "bold", fontSize: "14px" }}>{t('giftList.jumpToCard.label')}:</label>
-          <form onSubmit={handleJumpToSubmit} style={{ display: "flex", alignItems: "center", gap: "4px" }}>
-            <input
-              type="number"
-              value={jumpToIndex}
-              onChange={(e) => setJumpToIndex(e.target.value)}
-              placeholder={t('giftList.jumpToCard.placeholder')}
-              min="1"
-              max={gifts.length}
-              style={{
-                padding: "6px 10px",
-                border: "1px solid #ced4da",
-                borderRadius: "4px",
-                fontSize: "14px",
-                width: "80px"
-              }}
-            />
-            <button
-              type="submit"
-              style={{
-                padding: "6px 12px",
-                backgroundColor: "#28a745",
-                color: "white",
-                border: "none",
-                borderRadius: "4px",
-                cursor: "pointer",
-                fontSize: "12px",
-                fontWeight: "bold"
-              }}
-              title={`${t('giftList.jumpToCard.label')} (1-${gifts.length})`}
-            >
-              🎯
-            </button>
-          </form>
         </div>
       </div>
 
