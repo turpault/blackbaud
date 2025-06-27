@@ -83,6 +83,10 @@ const useDebouncedState = <T,>(initialValue: T, delay: number): [T, T, (value: T
   return [immediateValue, debouncedValue, setImmediateValue];
 };
 
+function delay(ms: number) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
 const GiftList: React.FC = () => {
   const { t } = useTranslation();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -132,6 +136,9 @@ const GiftList: React.FC = () => {
   // Scroll state tracking to prevent fetching during scroll
   const [isScrolling, setIsScrolling] = useState<boolean>(false);
   const scrollTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Ref to store the loadAllGiftsInBackground function to avoid dependency issues
+  const loadAllGiftsInBackgroundRef = useRef<(() => Promise<void>) | null>(null);
 
   // Debounced filters for better performance
   const [immediateFilters, debouncedFilters, setImmediateFilters] = useDebouncedState<Filters>({
@@ -202,7 +209,11 @@ const GiftList: React.FC = () => {
       // Auto-start background loading if there are more gifts available
       if (response.next_link && response.count && response.count > (response.value?.length || 0)) {
         console.log(`🔄 Auto-starting background loading: ${response.value?.length || 0} loaded, ${response.count} total available`);
-        setTimeout(() => loadAllGiftsInBackground(), 1000); // Small delay to let initial load settle
+        setTimeout(() => {
+          if (loadAllGiftsInBackgroundRef.current) {
+            loadAllGiftsInBackgroundRef.current();
+          }
+        }, 1000); // Small delay to let initial load settle
       }
     } catch (err: any) {
       console.error("Failed to fetch gifts:", err);
@@ -220,6 +231,7 @@ const GiftList: React.FC = () => {
 
     let offset = gifts.length;
     let hasMore = true;
+    let allGifts = [...gifts];
 
     try {
       while (hasMore) {
@@ -251,12 +263,13 @@ const GiftList: React.FC = () => {
         );
 
         if (response.value && response.value.length > 0) {
-          setGifts(prev => [...prev, ...response.value]);
+          allGifts = [...allGifts, ...response.value];
           offset += response.value.length;
+          // eslint-disable-next-line no-loop-func
           setBackgroundProgress({ loaded: offset, total: response.count || totalCount });
 
           // Small delay to prevent overwhelming the API
-          await new Promise(resolve => setTimeout(resolve, 100));
+          await delay(100);
         } else {
           hasMore = false;
         }
@@ -267,13 +280,17 @@ const GiftList: React.FC = () => {
         }
       }
 
+      setGifts(allGifts);
       console.log(`✅ Background loading complete: ${offset} gifts loaded`);
     } catch (err: any) {
       console.error("Failed to load all gifts in background:", err);
     } finally {
       setBackgroundLoading(false);
     }
-  }, [backgroundLoading, gifts.length, totalCount, filters]);
+  }, [backgroundLoading, gifts, totalCount, filters]);
+
+  // Assign the function to the ref
+  loadAllGiftsInBackgroundRef.current = loadAllGiftsInBackground;
 
   // Load gifts on mount and when filters change
   useEffect(() => {
