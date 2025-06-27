@@ -47,7 +47,10 @@ class AuthService {
                            error.message?.toLowerCase().includes('throttled') ||
                            error.message?.toLowerCase().includes('throttling') ||
                            error.response?.data?.title?.toLowerCase().includes('quota exceeded') ||
-                           error.response?.data?.detail?.toLowerCase().includes('quota exceeded');
+                           error.response?.data?.detail?.toLowerCase().includes('quota exceeded') ||
+                           error.response?.data?.message?.toLowerCase().includes('quota exceeded') ||
+                           error.response?.data?.error?.toLowerCase().includes('quota exceeded') ||
+                           error.response?.data?.error_description?.toLowerCase().includes('quota exceeded');
         
         // Only retry on quota errors, and only if we have attempts left
         if (!isQuotaError || attempt === maxRetries) {
@@ -92,17 +95,28 @@ class AuthService {
                          error.message?.toLowerCase().includes('throttled') ||
                          error.message?.toLowerCase().includes('throttling') ||
                          error.response?.data?.title?.toLowerCase().includes('quota exceeded') ||
-                         error.response?.data?.detail?.toLowerCase().includes('quota exceeded');
+                         error.response?.data?.detail?.toLowerCase().includes('quota exceeded') ||
+                         error.response?.data?.message?.toLowerCase().includes('quota exceeded') ||
+                         error.response?.data?.error?.toLowerCase().includes('quota exceeded') ||
+                         error.response?.data?.error_description?.toLowerCase().includes('quota exceeded');
       
       // Create user-friendly error message
       let errorMessage: string;
       let retryAfter: string | undefined;
       
       if (isRateLimit) {
+        console.warn('🚫 Rate limit detected:', {
+          status: error.response?.status || error.status,
+          message: error.message,
+          data: error.response?.data
+        });
+        
         // Enhanced quota exceeded message
         retryAfter = error.response?.headers?.['retry-after'] || 
                     error.response?.headers?.['Retry-After'] ||
-                    error.response?.data?.retry_after;
+                    error.response?.data?.retry_after ||
+                    error.response?.data?.retryAfter ||
+                    error.retryAfter;
         
         if (retryAfter) {
           const retrySeconds = parseInt(retryAfter);
@@ -134,9 +148,14 @@ class AuthService {
 
   // Method to notify quota context (will be set by the app)
   private notifyQuotaExceeded(retryAfter?: string): void {
+    console.warn(`🚫 API Quota Exceeded - Retry after: ${retryAfter || 'unknown'} seconds`);
+    
     // This will be set by the app when the service is initialized
     if ((window as any).__quotaContext) {
       (window as any).__quotaContext.setQuotaExceeded(true, retryAfter);
+      console.log('✅ Quota notification triggered successfully');
+    } else {
+      console.warn('⚠️ Quota context not available - notification may not display');
     }
   }
 

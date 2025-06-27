@@ -53,12 +53,6 @@ interface Filters {
   dateTo: string;
 }
 
-// Loading states for better UX
-interface LoadingStates {
-  constituents: Set<string>;
-  attachments: Set<string>;
-}
-
 // Custom hook for debounced state
 const useDebouncedState = <T,>(initialValue: T, delay: number): [T, T, (value: T) => void] => {
   const [immediateValue, setImmediateValue] = useState<T>(initialValue);
@@ -89,11 +83,10 @@ const GiftList: React.FC = () => {
   const [sortDirection, setSortDirection] = useState<SortDirection>(searchParams.get('sortDirection') as SortDirection);
   const [nextLink, setNextLink] = useState<string | null>(null);
   const [totalCount, setTotalCount] = useState<number>(0);
-  const [constituentCache, setConstituentCache] = useState<Record<string, ConstituentInfo>>({});
   const [cachedLists, setCachedLists] = useState<Record<string, { name: string; description?: string }>>({});
 
   // PDF loading statistics
-  const [pdfStats, setPdfStats] = useState({
+  const [pdfStats] = useState({
     totalPdfs: 0,
     loadedPdfs: 0,
     pendingPdfs: 0
@@ -204,57 +197,6 @@ const GiftList: React.FC = () => {
     console.log('Image error:', attachmentId);
   }, []);
 
-  // Sort gifts based on current sort settings
-  const sortedGifts = useMemo(() => {
-    if (!sortColumn) return displayedGifts;
-
-    return [...displayedGifts].sort((a, b) => {
-      let aValue: any;
-      let bValue: any;
-
-      switch (sortColumn) {
-        case 'amount':
-          aValue = a.amount?.value || 0;
-          bValue = b.amount?.value || 0;
-          break;
-        case 'date':
-          aValue = new Date(a.date || '').getTime();
-          bValue = new Date(b.date || '').getTime();
-          break;
-        case 'constituent':
-          aValue = constituentCache[a.constituent_id || '']?.name || '';
-          bValue = constituentCache[b.constituent_id || '']?.name || '';
-          break;
-        case 'type':
-          aValue = a.type || '';
-          bValue = b.type || '';
-          break;
-        case 'status':
-          aValue = a.gift_status || '';
-          bValue = b.gift_status || '';
-          break;
-        case 'fund':
-          aValue = a.designation || '';
-          bValue = b.designation || '';
-          break;
-        case 'campaign':
-          aValue = a.campaign || '';
-          bValue = b.campaign || '';
-          break;
-        case 'appeal':
-          aValue = a.appeal || '';
-          bValue = b.appeal || '';
-          break;
-        default:
-          return 0;
-      }
-
-      if (aValue < bValue) return sortDirection === 'asc' ? -1 : 1;
-      if (aValue > bValue) return sortDirection === 'asc' ? 1 : -1;
-      return 0;
-    });
-  }, [displayedGifts, sortColumn, sortDirection, constituentCache]);
-
   // Get unique values for filter dropdowns
   const uniqueTypes = useMemo(() => {
     const types = gifts
@@ -262,22 +204,6 @@ const GiftList: React.FC = () => {
       .filter(type => type && type.trim() !== '')
       .map(type => type as string);
     return Array.from(new Set(types)).sort();
-  }, [gifts]);
-
-  const uniqueStatuses = useMemo(() => {
-    const statuses = gifts
-      .map(gift => gift.gift_status)
-      .filter(status => status && status.trim() !== '')
-      .map(status => status as string);
-    return Array.from(new Set(statuses)).sort();
-  }, [gifts]);
-
-  const uniqueSubtypes = useMemo(() => {
-    const subtypes = gifts
-      .map(gift => gift.subtype)
-      .filter(subtype => subtype && subtype.trim() !== '')
-      .map(subtype => subtype as string);
-    return Array.from(new Set(subtypes)).sort();
   }, [gifts]);
 
   const handleSort = (column: string): void => {

@@ -1,17 +1,10 @@
 import React, { useCallback, useEffect, useState, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { getProxiedUrl, isBlackbaudFileUrl } from '../utils/corsProxy';
-import { getDocument, GlobalWorkerOptions } from "pdfjs-dist";
 
 // Import PDF.js - using require to avoid TypeScript issues
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const pdfjsLib = require('pdfjs-dist');
-
-// Set up the worker - using a more reliable CDN URL
-if (typeof window !== 'undefined') {
-  // Use jsDelivr CDN which is more reliable than cdnjs for PDF.js worker files
-  pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdn.jsdelivr.net/npm/pdfjs-dist@${pdfjsLib.version}/build/pdf.worker.min.mjs`;
-}
 
 interface PdfViewerProps {
   url: string;
