@@ -23,17 +23,21 @@ const CacheStatistics: React.FC = () => {
   // Known cache prefixes from our implementation
   const knownPrefixes = useMemo(() => ['gifts', 'getGiftAttachments', 'lists', 'queries', 'getConstituent'], []);
 
-  const updateStats = useCallback(() => {
-    // Get global stats
-    const stats = getCacheStats();
-    setGlobalStats(stats);
+  const updateStats = useCallback(async () => {
+    try {
+      // Get global stats
+      const stats = await getCacheStats();
+      setGlobalStats(stats);
 
-    // Get stats for each known prefix
-    const prefixData: PrefixStats = {};
-    knownPrefixes.forEach(prefix => {
-      prefixData[prefix] = getCacheStats(prefix);
-    });
-    setPrefixStats(prefixData);
+      // Get stats for each known prefix
+      const prefixData: PrefixStats = {};
+      for (const prefix of knownPrefixes) {
+        prefixData[prefix] = await getCacheStats(prefix);
+      }
+      setPrefixStats(prefixData);
+    } catch (error) {
+      console.error('Failed to update cache stats:', error);
+    }
   }, [knownPrefixes]);
 
   useEffect(() => {
@@ -50,15 +54,25 @@ const CacheStatistics: React.FC = () => {
   }, [autoRefresh, refreshInterval, updateStats]);
 
   const handleClearCache = async (prefix?: string) => {
-    const clearedCount = clearCache(prefix);
-    alert(`Cleared ${clearedCount} cache entries${prefix ? ` with prefix "${prefix}"` : ''}`);
-    updateStats();
+    try {
+      const clearedCount = await clearCache(prefix);
+      alert(`Cleared ${clearedCount} cache entries${prefix ? ` with prefix "${prefix}"` : ''}`);
+      await updateStats();
+    } catch (error) {
+      console.error('Failed to clear cache:', error);
+      alert('Failed to clear cache');
+    }
   };
 
   const handleCleanExpired = async (prefix?: string) => {
-    const cleanedCount = cleanExpiredCache(prefix);
-    alert(`Cleaned ${cleanedCount} expired cache entries${prefix ? ` with prefix "${prefix}"` : ''}`);
-    updateStats();
+    try {
+      const cleanedCount = await cleanExpiredCache(prefix);
+      alert(`Cleaned ${cleanedCount} expired cache entries${prefix ? ` with prefix "${prefix}"` : ''}`);
+      await updateStats();
+    } catch (error) {
+      console.error('Failed to clean expired cache:', error);
+      alert('Failed to clean expired cache');
+    }
   };
 
   const formatBytes = (bytes: number): string => {
@@ -139,7 +153,7 @@ const CacheStatistics: React.FC = () => {
   return (
     <div style={containerStyle}>
       <h2>📊 Cache Decorator Statistics</h2>
-      <p>Monitor and manage cache performance for API results stored in localStorage</p>
+      <p>Monitor and manage cache performance for API results stored in IndexedDB</p>
 
       {/* Controls */}
       <div style={cardStyle}>

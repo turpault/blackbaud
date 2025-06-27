@@ -1,6 +1,7 @@
 import axios, { AxiosRequestConfig, AxiosResponse } from 'axios';
 import { cache } from '../utils/cacheDecorator';
 import { attachmentQueue } from '../utils/concurrentQueue';
+import { constituentCacheUtils, giftCacheUtils } from '../utils/database';
 import { 
   OAuthSessionResponse, 
   SessionInfo, 
@@ -874,26 +875,15 @@ class AuthService {
     const uncachedIds: string[] = [];
 
     for (const id of constituentIds) {
-      const cacheKey = `constituent_${id}`;
       try {
-        const cached = localStorage.getItem(cacheKey);
-        if (cached) {
-          const cachedData = JSON.parse(cached);
-          const now = Date.now();
-          
-          // Cache valid for 1 hour
-          if (cachedData.timestamp && (now - cachedData.timestamp) < 3600000) {
-            results[id] = cachedData.data;
-            console.log(`💾 Found cached data for constituent ${id}:`, cachedData.data);
-            continue;
-          } else {
-            localStorage.removeItem(cacheKey);
-            console.log(`🗑️ Removed expired cache for constituent ${id}`);
-          }
+        const cachedData = await constituentCacheUtils.get(id);
+        if (cachedData) {
+          results[id] = cachedData;
+          console.log(`💾 Found cached data for constituent ${id}:`, cachedData);
+          continue;
         }
       } catch (error) {
         console.warn(`Failed to read constituent ${id} from cache:`, error);
-        localStorage.removeItem(cacheKey);
       }
       uncachedIds.push(id);
     }
@@ -911,12 +901,7 @@ class AuthService {
         constituentPromise = this.getConstituent(id).then(constituent => {
           // Cache the result
           if (constituent) {
-            const cacheKey = `constituent_${id}`;
-            const cacheData = {
-              data: constituent,
-              timestamp: Date.now()
-            };
-            localStorage.setItem(cacheKey, JSON.stringify(cacheData));
+            constituentCacheUtils.set(id, constituent);
             console.log(`💾 Cached constituent ${id}:`, constituent);
           }
           
@@ -949,57 +934,33 @@ class AuthService {
 
   // Clear constituent cache
   clearConstituentCache(constituentId?: string): void {
+    // Clear from IndexedDB
+    constituentCacheUtils.delete(constituentId);
+    
+    // Clear memoized promises for this constituent
     if (constituentId) {
-      const cacheKey = `constituent_${constituentId}`;
-      localStorage.removeItem(cacheKey);
-      
-      // Clear memoized promises for this constituent
       const promiseKeysToDelete = Array.from(this.constituentPromises.keys())
         .filter(key => key.startsWith(`${constituentId}_`));
       promiseKeysToDelete.forEach(key => this.constituentPromises.delete(key));
       
       console.log(`Cleared cache and ${promiseKeysToDelete.length} memoized promises for constituent ${constituentId}`);
     } else {
-      // Clear all constituent cache
-      const keys = Object.keys(localStorage);
-      const constituentKeys = keys.filter(key => key.startsWith('constituent_'));
-      constituentKeys.forEach(key => localStorage.removeItem(key));
-      
       // Clear all memoized promises
       const promiseCount = this.constituentPromises.size;
       this.constituentPromises.clear();
       
-      console.log(`Cleared cache for ${constituentKeys.length} constituents and ${promiseCount} memoized promises`);
+      console.log(`Cleared cache for all constituents and ${promiseCount} memoized promises`);
     }
   }
 
   // Get cache statistics including memoized promises
-  getCacheStats(): { count: number; totalSize: number; oldestEntry?: Date; pendingPromises: number } {
-    const keys = Object.keys(localStorage);
-    const constituentKeys = keys.filter(key => key.startsWith('constituent_'));
-    let totalSize = 0;
-    let oldestTimestamp = Date.now();
-
-    constituentKeys.forEach(key => {
-      const data = localStorage.getItem(key);
-      if (data) {
-        totalSize += data.length;
-        try {
-          const parsed = JSON.parse(data);
-          if (parsed.timestamp && parsed.timestamp < oldestTimestamp) {
-            oldestTimestamp = parsed.timestamp;
-          }
-        } catch (error) {
-          // Invalid cache entry, remove it
-          localStorage.removeItem(key);
-        }
-      }
-    });
-
+  async getCacheStats(): Promise<{ count: number; totalSize: number; oldestEntry?: Date; pendingPromises: number }> {
+    const stats = await constituentCacheUtils.getStats();
+    
     return {
-      count: constituentKeys.length,
-      totalSize,
-      oldestEntry: constituentKeys.length > 0 ? new Date(oldestTimestamp) : undefined,
+      count: stats.count,
+      totalSize: stats.totalSize,
+      oldestEntry: stats.oldestEntry,
       pendingPromises: this.constituentPromises.size
     };
   }
@@ -1133,52 +1094,13 @@ class AuthService {
 
   // Clear gift cache
   clearGiftCache(filters?: any): void {
-    if (filters) {
-      // Clear specific filter combination
-      const filterString = JSON.stringify(filters);
-      const keys = Object.keys(localStorage);
-      const giftKeys = keys.filter(key => 
-        key.startsWith('gifts_') && key.includes(filterString)
-      );
-      giftKeys.forEach(key => localStorage.removeItem(key));
-      console.log(`Cleared ${giftKeys.length} gift cache entries for filters:`, filters);
-    } else {
-      // Clear all gift cache
-      const keys = Object.keys(localStorage);
-      const giftKeys = keys.filter(key => key.startsWith('gifts_'));
-      giftKeys.forEach(key => localStorage.removeItem(key));
-      console.log(`Cleared ${giftKeys.length} gift cache entries`);
-    }
+    giftCacheUtils.delete(filters);
+    console.log(`Cleared gift cache${filters ? ' for specific filters' : ' for all gifts'}`);
   }
 
   // Get gift cache statistics
-  getGiftCacheStats(): { count: number; totalSize: number; filterCombinations: number } {
-    const keys = Object.keys(localStorage);
-    const giftKeys = keys.filter(key => key.startsWith('gifts_'));
-    let totalSize = 0;
-    const filterCombinations = new Set<string>();
-
-    giftKeys.forEach(key => {
-      try {
-        const item = localStorage.getItem(key);
-        if (item) {
-          totalSize += item.length;
-          // Extract filter combination from key
-          const filterMatch = key.match(/filters_(.+)$/);
-          if (filterMatch) {
-            filterCombinations.add(filterMatch[1]);
-          }
-        }
-      } catch (error) {
-        console.warn(`Failed to read gift cache key ${key}:`, error);
-      }
-    });
-
-    return {
-      count: giftKeys.length,
-      totalSize,
-      filterCombinations: filterCombinations.size
-    };
+  async getGiftCacheStats(): Promise<{ count: number; totalSize: number; filterCombinations: number }> {
+    return await giftCacheUtils.getStats();
   }
 }
 

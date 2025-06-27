@@ -22,9 +22,13 @@ const ConstituentManager: React.FC<ConstituentManagerProps> = ({ constituentId }
     return () => clearInterval(interval);
   }, []);
 
-  const updateCacheStats = () => {
-    const stats = authService.getCacheStats();
-    setCacheStats(stats);
+  const updateCacheStats = async () => {
+    try {
+      const stats = await authService.getCacheStats();
+      setCacheStats(stats);
+    } catch (error) {
+      console.error('Failed to update cache stats:', error);
+    }
   };
 
   const fetchConstituent = async (id: string, useCache: boolean = true) => {
@@ -44,7 +48,7 @@ const ConstituentManager: React.FC<ConstituentManagerProps> = ({ constituentId }
         (errorMsg) => setError(errorMsg)
       );
       setConstituent(constituentData);
-      updateCacheStats();
+      await updateCacheStats();
     } catch (err: any) {
       // Error is already handled by executeQuery, but we still need to catch it
       console.error("Failed to fetch constituent:", err);
@@ -54,9 +58,9 @@ const ConstituentManager: React.FC<ConstituentManagerProps> = ({ constituentId }
     }
   };
 
-  const clearCache = (specificId?: string) => {
+  const clearCache = async (specificId?: string) => {
     authService.clearConstituentCache(specificId);
-    updateCacheStats();
+    await updateCacheStats();
     if (!specificId) {
       setConstituent(null);
     }
@@ -91,7 +95,7 @@ const ConstituentManager: React.FC<ConstituentManagerProps> = ({ constituentId }
 
       console.log("All requests completed:", results);
       setConstituent(results[0]); // All should be the same
-      updateCacheStats();
+      await updateCacheStats();
     } catch (err: any) {
       // Error is already handled by executeQuery, but we still need to catch it
       console.error("Failed to test promise memoization:", err);
@@ -155,7 +159,7 @@ const ConstituentManager: React.FC<ConstituentManagerProps> = ({ constituentId }
   return (
     <div style={containerStyle}>
       <h2>🔍 Constituent Manager</h2>
-      <p>Demonstrate Blackbaud Constituent API integration with localStorage caching</p>
+      <p>Demonstrate Blackbaud Constituent API integration with IndexedDB caching</p>
 
       {/* Search Form */}
       <div style={cardStyle}>
