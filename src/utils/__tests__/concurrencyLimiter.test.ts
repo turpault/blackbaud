@@ -12,8 +12,7 @@ describe('ConcurrencyLimiter', () => {
   beforeEach(() => {
     limiter = createConcurrencyLimiter({
       maxConcurrent: 2,
-      timeout: 5000,
-      retryAttempts: 1
+      timeout: 5000
     });
   });
 
@@ -151,43 +150,19 @@ describe('Advanced ConcurrencyLimiter features', () => {
     expect(limiter.getStats().maxConcurrent).toBe(3);
   });
 
-  test('should handle retry logic', async () => {
-    let attempts = 0;
-    const failingFn = async () => {
-      attempts++;
-      if (attempts < 3) {
-        throw new Error('Temporary failure');
-      }
+  test('should handle timeout correctly', async () => {
+    const slowFn = async () => {
+      await new Promise(resolve => setTimeout(resolve, 2000));
       return 'success';
     };
 
     const limiter = createConcurrencyLimiter({
       maxConcurrent: 1,
-      retryAttempts: 3,
-      retryDelay: 100
-    });
-
-    const result = await limiter.executeWithLimit(failingFn, 'retryFunction', []);
-    expect(result).toBe('success');
-    expect(attempts).toBe(3);
-  });
-
-  test('should not retry on non-retryable errors', async () => {
-    let attempts = 0;
-    const authErrorFn = async () => {
-      attempts++;
-      throw new Error('Not authenticated');
-    };
-
-    const limiter = createConcurrencyLimiter({
-      maxConcurrent: 1,
-      retryAttempts: 3
+      timeout: 1000
     });
 
     await expect(
-      limiter.executeWithLimit(authErrorFn, 'authFunction', [])
-    ).rejects.toThrow('Not authenticated');
-    
-    expect(attempts).toBe(1); // Should not retry
+      limiter.executeWithLimit(slowFn, 'timeoutFunction', [])
+    ).rejects.toThrow('Timeout after 1000ms');
   });
 }); 

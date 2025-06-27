@@ -8,8 +8,6 @@
 interface ConcurrencyLimiterOptions {
   maxConcurrent?: number;
   timeout?: number;
-  retryAttempts?: number;
-  retryDelay?: number;
   onQueueFull?: (functionName: string) => void;
   onTimeout?: (functionName: string, timeout: number) => void;
   onError?: (functionName: string, error: any) => void;
@@ -33,8 +31,6 @@ class ConcurrencyLimiter {
     this.options = {
       maxConcurrent: options.maxConcurrent || 5,
       timeout: options.timeout || 30000, // 30 seconds
-      retryAttempts: options.retryAttempts || 3,
-      retryDelay: options.retryDelay || 1000, // 1 second
       onQueueFull: options.onQueueFull || (() => {}),
       onTimeout: options.onTimeout || (() => {}),
       onError: options.onError || (() => {}),
@@ -115,11 +111,11 @@ class ConcurrencyLimiter {
         }, this.options.timeout);
       });
 
-      // Execute the function with retry logic
-      const result = await this.executeWithRetry(
-        queuedFunction.fn,
-        queuedFunction.functionName
-      );
+      // Execute the function with timeout
+      const result = await Promise.race([
+        queuedFunction.fn(),
+        timeoutPromise
+      ]);
 
       queuedFunction.resolve(result);
     } catch (error: any) {
@@ -130,61 +126,6 @@ class ConcurrencyLimiter {
       // Process next item in queue
       setImmediate(() => this.processQueue());
     }
-  }
-
-  /**
-   * Execute function with retry logic
-   */
-  private async executeWithRetry<T>(
-    fn: () => Promise<T>,
-    functionName: string
-  ): Promise<T> {
-    let lastError: any;
-
-    for (let attempt = 1; attempt <= this.options.retryAttempts; attempt++) {
-      try {
-        return await fn();
-      } catch (error: any) {
-        lastError = error;
-        
-        // Don't retry on certain errors
-        if (this.shouldNotRetry(error)) {
-          throw error;
-        }
-
-        // Wait before retry (except on last attempt)
-        if (attempt < this.options.retryAttempts) {
-          await this.delay(this.options.retryDelay * attempt); // Exponential backoff
-        }
-      }
-    }
-
-    throw lastError;
-  }
-
-  /**
-   * Determine if an error should not be retried
-   */
-  private shouldNotRetry(error: any): boolean {
-    // Don't retry on authentication errors, validation errors, etc.
-    const nonRetryableErrors = [
-      'Not authenticated',
-      'Authentication expired',
-      'Invalid request',
-      'Validation failed',
-      'Permission denied',
-      'Not found',
-    ];
-
-    const errorMessage = error.message || error.toString();
-    return nonRetryableErrors.some(msg => errorMessage.includes(msg));
-  }
-
-  /**
-   * Delay utility
-   */
-  private delay(ms: number): Promise<void> {
-    return new Promise(resolve => setTimeout(resolve, ms));
   }
 
   /**

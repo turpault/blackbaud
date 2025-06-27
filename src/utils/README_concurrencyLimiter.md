@@ -6,9 +6,8 @@ A powerful TypeScript decorator and utility for limiting concurrent executions o
 
 - 🚦 **Concurrency Control**: Limit the number of simultaneous executions
 - ⏱️ **Timeout Management**: Automatic timeout handling with configurable limits
-- 🔄 **Retry Logic**: Built-in retry mechanism with exponential backoff
 - 📊 **Queue Management**: Intelligent queue handling with overflow protection
-- 🎯 **Smart Error Handling**: Distinguishes between retryable and non-retryable errors
+- 🎯 **Error Handling**: Graceful error handling with custom callbacks
 - 📈 **Statistics & Monitoring**: Real-time queue and execution statistics
 - 🔧 **Dynamic Configuration**: Update limits at runtime
 - 🎨 **Multiple Usage Patterns**: Decorator, function wrapper, and direct usage
@@ -44,8 +43,7 @@ const limitedApiCall = limitConcurrency(
   },
   {
     maxConcurrent: 5,
-    timeout: 10000,
-    retryAttempts: 2
+    timeout: 10000
   }
 );
 ```
@@ -57,8 +55,7 @@ import { createConcurrencyLimiter } from '../utils/concurrencyLimiter';
 
 const limiter = createConcurrencyLimiter({
   maxConcurrent: 2,
-  timeout: 15000,
-  retryAttempts: 3
+  timeout: 15000
 });
 
 const result = await limiter.executeWithLimit(
@@ -74,8 +71,6 @@ const result = await limiter.executeWithLimit(
 interface ConcurrencyLimiterOptions {
   maxConcurrent?: number;        // Maximum concurrent executions (default: 5)
   timeout?: number;              // Timeout in milliseconds (default: 30000)
-  retryAttempts?: number;        // Number of retry attempts (default: 3)
-  retryDelay?: number;           // Base delay between retries (default: 1000)
   onQueueFull?: (functionName: string) => void;     // Queue overflow callback
   onTimeout?: (functionName: string, timeout: number) => void;  // Timeout callback
   onError?: (functionName: string, error: any) => void;         // Error callback
@@ -151,14 +146,7 @@ console.log({
 
 ## Error Handling
 
-The concurrency limiter includes intelligent error handling:
-
-### Non-Retryable Errors
-The following errors are not retried:
-- Authentication errors (`Not authenticated`, `Authentication expired`)
-- Validation errors (`Invalid request`, `Validation failed`)
-- Permission errors (`Permission denied`)
-- Not found errors (`Not found`)
+The concurrency limiter includes graceful error handling:
 
 ### Custom Error Handling
 
@@ -232,8 +220,7 @@ async function processWithProgress(items: string[]): Promise<any[]> {
 2. **Monitor Queue Length**: Use statistics to identify bottlenecks
 3. **Handle Queue Overflow**: Implement appropriate error handling for queue full scenarios
 4. **Use Timeouts**: Always set reasonable timeouts to prevent hanging requests
-5. **Implement Retry Logic**: Use retries for transient failures, not for permanent errors
-6. **Monitor Performance**: Track execution times and adjust limits accordingly
+5. **Monitor Performance**: Track execution times and adjust limits accordingly
 
 ## Performance Considerations
 

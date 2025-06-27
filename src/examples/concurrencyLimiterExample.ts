@@ -21,7 +21,6 @@ class ApiService {
     this.concurrencyLimiter = createConcurrencyLimiter({
       maxConcurrent: 3,
       timeout: 30000,
-      retryAttempts: 2,
       onQueueFull: (functionName) => {
         console.warn(`Queue full for ${functionName}`);
       },
@@ -69,8 +68,7 @@ const limitedApiCall = limitConcurrency(
   },
   {
     maxConcurrent: 5,
-    timeout: 10000,
-    retryAttempts: 1
+    timeout: 10000
   }
 );
 
@@ -82,8 +80,6 @@ class AdvancedApiService {
     this.limiter = createConcurrencyLimiter({
       maxConcurrent: 4,
       timeout: 45000,
-      retryAttempts: 3,
-      retryDelay: 2000,
       onQueueFull: (functionName) => {
         console.error(`🚫 Queue overflow for ${functionName} - consider increasing maxConcurrent`);
       },
@@ -186,8 +182,7 @@ class IntegrationExample {
   constructor() {
     this.limiter = createConcurrencyLimiter({
       maxConcurrent: 3,
-      timeout: 20000,
-      retryAttempts: 2
+      timeout: 20000
     });
   }
 
