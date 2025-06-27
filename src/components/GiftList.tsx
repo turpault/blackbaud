@@ -654,18 +654,21 @@ const GiftList: React.FC = () => {
   }, [cardsPerRow, zoomLevel, gridGap]);
 
   // Handle keyboard scrolling
-  const handleKeyDown = useCallback((e: KeyboardEvent) => {
+  const handleKeyDown = useCallback((e: React.KeyboardEvent<HTMLDivElement>) => {
     if (!scrollContainerRef.current) return;
 
     const scrollContainer = scrollContainerRef.current;
     const currentScrollTop = scrollContainer.scrollTop;
     const rowHeight = cardHeight + gridGap; // Height of one row
 
+    console.log(`Key pressed: ${e.key}, Current scroll: ${currentScrollTop}, Row height: ${rowHeight}`);
+
     switch (e.key) {
       case 'ArrowDown':
         e.preventDefault();
         // Scroll to next row exactly
         const nextRowTop = Math.ceil(currentScrollTop / rowHeight) * rowHeight;
+        console.log(`Arrow Down: scrolling to ${nextRowTop}`);
         scrollContainer.scrollTo({
           top: nextRowTop,
           behavior: 'smooth'
@@ -675,6 +678,7 @@ const GiftList: React.FC = () => {
         e.preventDefault();
         // Scroll to previous row exactly
         const prevRowTop = Math.max(0, Math.floor(currentScrollTop / rowHeight) * rowHeight);
+        console.log(`Arrow Up: scrolling to ${prevRowTop}`);
         scrollContainer.scrollTo({
           top: prevRowTop,
           behavior: 'smooth'
@@ -684,6 +688,7 @@ const GiftList: React.FC = () => {
         e.preventDefault();
         // Scroll to next 10 rows exactly
         const next10RowsTop = Math.ceil(currentScrollTop / rowHeight) * rowHeight + (10 * rowHeight);
+        console.log(`Page Down: scrolling to ${next10RowsTop}`);
         scrollContainer.scrollTo({
           top: next10RowsTop,
           behavior: 'smooth'
@@ -693,6 +698,7 @@ const GiftList: React.FC = () => {
         e.preventDefault();
         // Scroll to previous 10 rows exactly
         const prev10RowsTop = Math.max(0, Math.floor(currentScrollTop / rowHeight) * rowHeight - (10 * rowHeight));
+        console.log(`Page Up: scrolling to ${prev10RowsTop}`);
         scrollContainer.scrollTo({
           top: prev10RowsTop,
           behavior: 'smooth'
@@ -700,6 +706,7 @@ const GiftList: React.FC = () => {
         break;
       case 'Home':
         e.preventDefault();
+        console.log('Home: scrolling to top');
         scrollContainer.scrollTo({
           top: 0,
           behavior: 'smooth'
@@ -707,6 +714,7 @@ const GiftList: React.FC = () => {
         break;
       case 'End':
         e.preventDefault();
+        console.log('End: scrolling to bottom');
         scrollContainer.scrollTo({
           top: scrollContainer.scrollHeight,
           behavior: 'smooth'
@@ -714,12 +722,6 @@ const GiftList: React.FC = () => {
         break;
     }
   }, [cardHeight, gridGap]);
-
-  // Set up keyboard event listener
-  useEffect(() => {
-    document.addEventListener('keydown', handleKeyDown);
-    return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [handleKeyDown]);
 
   // Update grid layout when zoom level or container size changes
   useEffect(() => {
@@ -1237,10 +1239,13 @@ const GiftList: React.FC = () => {
             {/* Scrollable container with total height */}
             <div
               ref={scrollContainerRef}
+              tabIndex={0}
+              onKeyDown={handleKeyDown}
               style={{
                 height: "100%",
                 overflow: "auto",
-                position: "relative"
+                position: "relative",
+                outline: "none"
               }}
             >
               {/* Virtual content with total height */}
