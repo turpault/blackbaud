@@ -78,30 +78,30 @@ export function cache<T>(options: CacheOptions = {}) {
         return pendingPromise;
       }
 
-      // Try to get from cache first
-      try {
-        const cachedResult = await getCachedResult<T>(cacheKey, debug);
-        if (cachedResult) {
-          if (debug) {
-            console.log(`[Cache] Cache hit for key: ${cacheKey}`);
-          }
-          return cachedResult;
-        }
-      } catch (error) {
-        if (debug) {
-          console.warn(`[Cache] Error reading from cache for key ${cacheKey}:`, error);
-        }
-        // Continue to fetch fresh data
-      }
-
-      if (debug) {
-        console.log(`[Cache] Cache miss for key: ${cacheKey}, fetching fresh data`);
-      }
-
-      // Cache miss or expired - fetch fresh data
       // Create a promise for this operation to handle parallel calls
       const operationPromise = (async (): Promise<T> => {
         try {
+          // Try to get from cache first (inside the promise to prevent race conditions)
+          try {
+            const cachedResult = await getCachedResult<T>(cacheKey, debug);
+            if (cachedResult) {
+              if (debug) {
+                console.log(`[Cache] Cache hit for key: ${cacheKey}`);
+              }
+              return cachedResult;
+            }
+          } catch (error) {
+            if (debug) {
+              console.warn(`[Cache] Error reading from cache for key ${cacheKey}:`, error);
+            }
+            // Continue to fetch fresh data
+          }
+
+          if (debug) {
+            console.log(`[Cache] Cache miss for key: ${cacheKey}, fetching fresh data`);
+          }
+
+          // Cache miss or expired - fetch fresh data
           const result: T = await originalMethod.apply(this, args);
           
           // Cache the result
