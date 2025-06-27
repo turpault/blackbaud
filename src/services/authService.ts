@@ -335,6 +335,87 @@ class AuthService {
     window.location.href = '/blackbaud/';
   }
 
+  // Initiate login using iframe for seamless re-authentication
+  initiateLoginInIframe(): Promise<SessionInfo> {
+    return new Promise((resolve, reject) => {
+      // Create iframe for OAuth flow
+      const iframe = document.createElement('iframe');
+      iframe.style.position = 'fixed';
+      iframe.style.top = '0';
+      iframe.style.left = '0';
+      iframe.style.width = '100%';
+      iframe.style.height = '100%';
+      iframe.style.border = 'none';
+      iframe.style.zIndex = '9999';
+      iframe.style.backgroundColor = 'rgba(0, 0, 0, 0.8)';
+      iframe.src = '/blackbaud/oauth/login?iframe=true';
+      
+      // Add iframe to page
+      document.body.appendChild(iframe);
+      
+      // Listen for messages from iframe
+      const messageHandler = async (event: MessageEvent) => {
+        // Only accept messages from our domain
+        if (event.origin !== window.location.origin) return;
+        
+        if (event.data.type === 'OAUTH_SUCCESS') {
+          // Remove iframe and event listener
+          document.body.removeChild(iframe);
+          window.removeEventListener('message', messageHandler);
+          
+          // Check authentication status
+          try {
+            const session = await this.checkAuthentication();
+            resolve(session);
+          } catch (error) {
+            reject(error);
+          }
+        } else if (event.data.type === 'OAUTH_ERROR') {
+          // Remove iframe and event listener
+          document.body.removeChild(iframe);
+          window.removeEventListener('message', messageHandler);
+          reject(new Error(event.data.error || 'OAuth authentication failed'));
+        }
+      };
+      
+      window.addEventListener('message', messageHandler);
+      
+      // Add close button to iframe
+      const closeButton = document.createElement('button');
+      closeButton.textContent = '✕';
+      closeButton.style.position = 'fixed';
+      closeButton.style.top = '20px';
+      closeButton.style.right = '20px';
+      closeButton.style.zIndex = '10000';
+      closeButton.style.background = '#dc3545';
+      closeButton.style.color = 'white';
+      closeButton.style.border = 'none';
+      closeButton.style.borderRadius = '50%';
+      closeButton.style.width = '40px';
+      closeButton.style.height = '40px';
+      closeButton.style.fontSize = '20px';
+      closeButton.style.cursor = 'pointer';
+      closeButton.onclick = () => {
+        document.body.removeChild(iframe);
+        document.body.removeChild(closeButton);
+        window.removeEventListener('message', messageHandler);
+        reject(new Error('OAuth authentication cancelled by user'));
+      };
+      
+      document.body.appendChild(closeButton);
+      
+      // Timeout after 5 minutes
+      setTimeout(() => {
+        if (document.body.contains(iframe)) {
+          document.body.removeChild(iframe);
+          document.body.removeChild(closeButton);
+          window.removeEventListener('message', messageHandler);
+          reject(new Error('OAuth authentication timed out'));
+        }
+      }, 5 * 60 * 1000);
+    });
+  }
+
   // Save current application state to URL for restoration after re-authentication
   private saveCurrentStateToUrl(): void {
     try {
@@ -439,11 +520,10 @@ class AuthService {
         return response.data;
       } catch (error: any) {
         if (error.response?.status === 401) {
-          // Token might be expired - force refresh session and retry once
-          console.log('🔄 401 error detected, forcing session refresh');
-          
+          // Authentication failed - try iframe-based re-authentication
+          console.log('🔐 Authentication failed, attempting iframe-based re-authentication');
           try {
-            const newSession = await this.forceRefreshSession();
+            const newSession = await this.initiateLoginInIframe();
             if (newSession.authenticated && newSession.accessToken && newSession.subscriptionKey) {
               // Retry the request with fresh token and subscription key
               axiosConfig.headers!['Authorization'] = `${newSession.tokenType || 'Bearer'} ${newSession.accessToken}`;
@@ -451,14 +531,12 @@ class AuthService {
               const retryResponse: AxiosResponse<T> = await axios(axiosConfig);
               return retryResponse.data;
             }
-          } catch (retryError) {
-            console.error('Failed to refresh session and retry request:', retryError);
+          } catch (iframeError) {
+            console.error('Iframe re-authentication failed, falling back to full page redirect:', iframeError);
+            // Fallback to full page redirect
+            this.saveCurrentStateToUrl();
+            throw new Error('Authentication expired - please log in again');
           }
-          
-          // Authentication failed - save current state and redirect to login
-          console.log('🔐 Authentication failed, saving state and redirecting to login');
-          this.saveCurrentStateToUrl();
-          throw new Error('Authentication expired - please log in again');
         }
         
         // Re-throw other errors with more context
@@ -753,11 +831,10 @@ class AuthService {
         return response.data;
       } catch (error: any) {
         if (error.response?.status === 401) {
-          // Token might be expired - force refresh session and retry once
-          console.log('🔄 401 error detected, forcing session refresh');
-          
+          // Authentication failed - try iframe-based re-authentication
+          console.log('🔐 Authentication failed, attempting iframe-based re-authentication');
           try {
-            const newSession = await this.forceRefreshSession();
+            const newSession = await this.initiateLoginInIframe();
             if (newSession.authenticated && newSession.accessToken && newSession.subscriptionKey) {
               // Retry the request with fresh token and subscription key
               axiosConfig.headers!['Authorization'] = `${newSession.tokenType || 'Bearer'} ${newSession.accessToken}`;
@@ -765,14 +842,12 @@ class AuthService {
               const retryResponse: AxiosResponse<T> = await axios(axiosConfig);
               return retryResponse.data;
             }
-          } catch (retryError) {
-            console.error('Failed to refresh session and retry request:', retryError);
+          } catch (iframeError) {
+            console.error('Iframe re-authentication failed, falling back to full page redirect:', iframeError);
+            // Fallback to full page redirect
+            this.saveCurrentStateToUrl();
+            throw new Error('Authentication expired - please log in again');
           }
-          
-          // Authentication failed - save current state and redirect to login
-          console.log('🔐 Authentication failed, saving state and redirecting to login');
-          this.saveCurrentStateToUrl();
-          throw new Error('Authentication expired - please log in again');
         }
         
         // Re-throw other errors with more context
