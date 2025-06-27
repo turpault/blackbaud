@@ -425,14 +425,14 @@ class AuthService {
     }
   }
 
-  // Convenience method for making Blackbaud Gift API calls
+  // Get gifts from the Gift API with caching
   @cache({ 
     keyPrefix: 'gifts', 
-    expirationMs: 300000, // 5 minutes
-    keyGenerator: (limit: number, listId?: string) => `limit_${limit}_listId_${listId || 'none'}`
+    expirationMs: 24*60*60*1000, // 24 hours
+    keyGenerator: (limit: number, offset: number = 0, listId?: string) => `limit_${limit}_offset_${offset}_listId_${listId || 'none'}`
   })
-  async getGifts(limit: number = 1000, listId?: string): Promise<any> {
-    let url = `/gift/v1/gifts?limit=${limit}`;
+  async getGifts(limit: number = 1000, offset: number = 0, listId?: string): Promise<any> {
+    let url = `/gift/v1/gifts?limit=${limit}&offset=${offset}`;
     if (listId) {
       url += `&list_id=${encodeURIComponent(listId)}`;
     }

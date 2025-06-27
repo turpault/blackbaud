@@ -117,6 +117,8 @@ const GiftList: React.FC = () => {
   // Use debounced filters for API calls
   const filters = debouncedFilters;
 
+  const [currentOffset, setCurrentOffset] = useState<number>(0);
+
   // Fetch gifts function
   const fetchGifts = useCallback(async (reset: boolean = true): Promise<void> => {
     if (reset) {
@@ -156,23 +158,22 @@ const GiftList: React.FC = () => {
 
   // Load more gifts function
   const loadMoreGifts = useCallback(async (): Promise<void> => {
-    if (!nextLink || loadingMore) return;
-
+    if (loadingMore) return;
+    setLoadingMore(true);
     try {
-      setLoadingMore(true);
       const response: GiftListResponse = await authService.executeQuery(
-        () => authService.apiRequestUrl(nextLink),
+        () => authService.getGifts(1000, currentOffset, filters.listId),
         'loading more gifts'
       );
-
       setGifts(prev => [...prev, ...(response.value || [])]);
-      setNextLink(response.next_link || null);
+      setTotalCount(response.count || 0);
+      setCurrentOffset(prev => prev + 1000);
     } catch (err: any) {
       console.error("Failed to load more gifts:", err);
     } finally {
       setLoadingMore(false);
     }
-  }, [nextLink, loadingMore]);
+  }, [loadingMore, currentOffset, filters.listId]);
 
   // Load gifts on mount and when filters change
   useEffect(() => {
