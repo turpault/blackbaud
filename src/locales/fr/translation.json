@@ -76,22 +76,6 @@
       "notAvailable": "Les informations du profil ne sont pas disponibles."
     }
   },
-  "queueManager": {
-    "title": "🚀 Gestionnaire de file d'attente",
-    "active": "Actif",
-    "showDetails": "Afficher les détails",
-    "hideDetails": "Masquer les détails",
-    "clearAll": "Tout effacer",
-    "totalTasks": "Tâches totales",
-    "completed": "Terminé",
-    "pending": "En attente",
-    "failed": "Échoué",
-    "queueDetails": "Détails de la file d'attente",
-    "constituentQueue": "File d'attente des constituants",
-    "pdfQueue": "File d'attente PDF",
-    "running": "En cours",
-    "avgTime": "Temps moy"
-  },
   "giftList": {
     "title": "Dons",
     "loading": "Chargement des dons...",

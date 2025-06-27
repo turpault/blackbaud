@@ -76,22 +76,6 @@
       "notAvailable": "Profile information is not available."
     }
   },
-  "queueManager": {
-    "title": "🚀 Queue Manager",
-    "active": "Active",
-    "showDetails": "Show Details",
-    "hideDetails": "Hide Details",
-    "clearAll": "Clear All",
-    "totalTasks": "Total Tasks",
-    "completed": "Completed",
-    "pending": "Pending",
-    "failed": "Failed",
-    "queueDetails": "Queue Details",
-    "constituentQueue": "Constituent Queue",
-    "pdfQueue": "PDF Queue",
-    "running": "Running",
-    "avgTime": "Avg Time"
-  },
   "giftList": {
     "title": "Gifts",
     "loading": "Loading gifts...",
@@ -242,5 +226,14 @@
     "timeRemaining": "Time remaining:",
     "dismiss": "Dismiss",
     "autoHide": "This will automatically hide when the quota resets"
+  },
+  "cacheStatistics": {
+    "title": "Cache Statistics",
+    "refresh": "Refresh",
+    "clearAll": "Clear All Cache",
+    "cleanExpired": "Clean Expired",
+    "noData": "No cache data available",
+    "loading": "Loading cache statistics...",
+    "error": "Error loading cache statistics"
   }
 }

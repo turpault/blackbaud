@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { getCacheStats, clearCache, cleanExpiredCache } from "../utils/cacheDecorator";
-import QueueManager from "./QueueManager";
+import { useTranslation } from "react-i18next";
+import authService from "../services/authService";
 
 interface CacheStatsData {
   count: number;
@@ -381,11 +382,6 @@ const CacheStatistics: React.FC = () => {
             <p><strong>Size:</strong> {formatBytes(prefixStats.getConstituent?.totalSize || 0)}</p>
           </div>
         </div>
-      </div>
-
-      {/* Queue Manager */}
-      <div style={cardStyle}>
-        <QueueManager showDetails={true} />
       </div>
     </div>
   );

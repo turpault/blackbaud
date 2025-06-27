@@ -261,11 +261,4 @@ class ConcurrentQueue {
   }
 }
 
-export const constituentQueue = new ConcurrentQueue({
-  maxConcurrency: 2,
-  retryDelay: 2000,
-  maxRetries: 3,
-  enableStats: true
-});
-
 export default ConcurrentQueue;

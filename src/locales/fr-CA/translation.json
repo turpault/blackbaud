@@ -76,22 +76,6 @@
       "notAvailable": "Les informations du profil sont pas disponibles, dommage !"
     }
   },
-  "queueManager": {
-    "title": "🚀 Gestionnaire de file d'attente",
-    "active": "Actif",
-    "showDetails": "Montrer les détails",
-    "hideDetails": "Cacher les détails",
-    "clearAll": "Tout scraper",
-    "totalTasks": "Tâches totales",
-    "completed": "Fini, c'est réglé !",
-    "pending": "En attente, ça s'en vient...",
-    "failed": "Ça a pas marché, dommage !",
-    "queueDetails": "Détails de la file d'attente",
-    "constituentQueue": "File d'attente des constituants",
-    "pdfQueue": "File d'attente PDF",
-    "running": "Ça roule comme du beurre !",
-    "avgTime": "Temps moy"
-  },
   "giftList": {
     "title": "Dons",
     "loading": "Ça charge les dons, patience mon chum !",
