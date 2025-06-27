@@ -21,7 +21,6 @@ interface List {
 interface ListsResponse {
   count: number;
   value: List[];
-  next_link?: string;
 }
 
 type SortDirection = 'asc' | 'desc' | null;
@@ -35,7 +34,6 @@ const Lists: React.FC = () => {
   const navigate = useNavigate();
   const [lists, setLists] = useState<List[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
-  const [loadingMore, setLoadingMore] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
   const [sortColumn, setSortColumn] = useState<string | null>(searchParams.get('sortColumn'));
@@ -43,7 +41,6 @@ const Lists: React.FC = () => {
   const [filters, setFilters] = useState<Filters>({
     listType: searchParams.get('listType') || 'Gift'
   });
-  const [nextLink, setNextLink] = useState<string | null>(null);
   const [totalCount, setTotalCount] = useState<number>(0);
 
   // Available list types based on Blackbaud API documentation
@@ -61,41 +58,26 @@ const Lists: React.FC = () => {
     { value: 'Appeal', label: 'Appeal' }
   ];
 
-  const fetchLists = useCallback(async (reset: boolean = true): Promise<void> => {
-    if (reset) {
-      setLoading(true);
-      setError(null);
-      setLists([]);
-      setNextLink(null);
-    } else {
-      setLoadingMore(true);
-    }
+  const fetchLists = useCallback(async (): Promise<void> => {
+    setLoading(true);
+    setError(null);
+    setLists([]);
 
     try {
       // Use centralized query handler
       const response: ListsResponse = await authService.executeQuery(
-        () => authService.getLists(50, filters.listType || 'Gift'),
+        () => authService.getLists(1000, filters.listType || 'Gift'),
         'fetching lists',
         (errorMsg) => setError(errorMsg)
       );
 
-      if (reset) {
-        setLists(response.value || []);
-      } else {
-        setLists(prev => [...prev, ...(response.value || [])]);
-      }
-
-      setNextLink(response.next_link || null);
+      setLists(response.value || []);
       setTotalCount(response.count || 0);
     } catch (err: any) {
       // Error is already handled by executeQuery, but we still need to catch it
       console.error("Failed to fetch lists:", err);
     } finally {
-      if (reset) {
-        setLoading(false);
-      } else {
-        setLoadingMore(false);
-      }
+      setLoading(false);
     }
   }, [filters.listType]);
 
@@ -103,31 +85,6 @@ const Lists: React.FC = () => {
   useEffect(() => {
     fetchLists();
   }, [filters.listType, fetchLists]);
-
-  const loadMoreLists = async (): Promise<void> => {
-    if (!nextLink || loadingMore) return;
-
-    setLoadingMore(true);
-    setError(null);
-
-    try {
-      // Use centralized query handler
-      const response: ListsResponse = await authService.executeQuery(
-        () => authService.apiRequestUrl(nextLink),
-        'loading more lists',
-        (errorMsg) => setError(errorMsg)
-      );
-
-      setLists(prev => [...prev, ...(response.value || [])]);
-      setNextLink(response.next_link || null);
-      setTotalCount(response.count || 0);
-    } catch (err: any) {
-      // Error is already handled by executeQuery, but we still need to catch it
-      console.error("Failed to load more lists:", err);
-    } finally {
-      setLoadingMore(false);
-    }
-  };
 
   const handleSort = (column: string): void => {
     let newSortColumn: string | null;
@@ -447,9 +404,7 @@ const Lists: React.FC = () => {
         </div>
 
         <div style={{ marginLeft: "auto", fontSize: "14px", color: "#6c757d" }}>
-          {sortedLists.length !== totalCount && (
-            <span>Showing {sortedLists.length} of {totalCount.toLocaleString()} lists</span>
-          )}
+          <span>Total: {totalCount.toLocaleString()} lists</span>
         </div>
       </div>
 
@@ -599,48 +554,6 @@ const Lists: React.FC = () => {
               </tbody>
             </table>
           </div>
-
-          {/* Load More Button */}
-          {nextLink && !loading && (
-            <div style={{ textAlign: "center", marginTop: "20px" }}>
-              <button
-                onClick={loadMoreLists}
-                disabled={loadingMore}
-                style={{
-                  padding: "12px 24px",
-                  backgroundColor: loadingMore ? "#6c757d" : "#007bff",
-                  color: "white",
-                  border: "none",
-                  borderRadius: "6px",
-                  cursor: loadingMore ? "not-allowed" : "pointer",
-                  fontSize: "14px",
-                  fontWeight: "bold",
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "8px",
-                  margin: "0 auto"
-                }}
-              >
-                {loadingMore ? (
-                  <>
-                    <div
-                      style={{
-                        width: "16px",
-                        height: "16px",
-                        border: "2px solid #ffffff",
-                        borderTop: "2px solid transparent",
-                        borderRadius: "50%",
-                        animation: "spin 1s linear infinite"
-                      }}
-                    />
-                    Loading More...
-                  </>
-                ) : (
-                  "Load More Lists"
-                )}
-              </button>
-            </div>
-          )}
         </>
       )}
     </div>
