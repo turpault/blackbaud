@@ -215,9 +215,17 @@ const Lists: React.FC = () => {
     return new Date(dateString).toLocaleDateString();
   };
 
-  const handleViewGifts = (listId: string): void => {
-    // Navigate to gifts tab with listId filter
-    navigate(`/dashboard/gifts?listId=${encodeURIComponent(listId)}`);
+  const handleViewGifts = (listId: string, listType?: string): void => {
+    // Navigate to gifts tab with listId and listType filters
+    const params = new URLSearchParams();
+    params.set('listId', listId);
+    if (listType) {
+      params.set('listType', listType);
+    } else {
+      // Fallback to current filter type if not provided
+      params.set('listType', filters.listType);
+    }
+    navigate(`/dashboard/gifts?${params.toString()}`);
   };
 
   const handleRefresh = useCallback(async (): Promise<void> => {
@@ -469,7 +477,7 @@ const Lists: React.FC = () => {
                       </td>
                       <td style={tdStyle}>
                         <button
-                          onClick={() => handleViewGifts(list.id)}
+                          onClick={() => handleViewGifts(list.id, list.type)}
                           style={{
                             padding: "4px 8px",
                             backgroundColor: "#28a745",

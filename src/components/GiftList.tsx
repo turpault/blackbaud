@@ -46,6 +46,7 @@ type SortDirection = 'asc' | 'desc' | null;
 
 interface Filters {
   listId: string;
+  listType: string;
   giftType: string;
   giftStatus: string;
   dateFrom: string;
@@ -133,6 +134,7 @@ const GiftList: React.FC = () => {
   // Debounced filters for better performance
   const [immediateFilters, debouncedFilters, setImmediateFilters] = useDebouncedState<Filters>({
     listId: searchParams.get('listId') || '',
+    listType: searchParams.get('listType') || '',
     giftType: searchParams.get('giftType') || '',
     giftStatus: searchParams.get('giftStatus') || '',
     dateFrom: searchParams.get('dateFrom') || '',
@@ -173,6 +175,7 @@ const GiftList: React.FC = () => {
       // Convert string filters to proper types for API
       const apiFilters = {
         listId: filters.listId || undefined,
+        listType: filters.listType || undefined,
         giftType: filters.giftType || undefined,
         giftStatus: filters.giftStatus || undefined,
         dateFrom: filters.dateFrom || undefined,
@@ -230,6 +233,7 @@ const GiftList: React.FC = () => {
       // Convert string filters to proper types for API
       const apiFilters = {
         listId: filters.listId || undefined,
+        listType: filters.listType || undefined,
         giftType: filters.giftType || undefined,
         giftStatus: filters.giftStatus || undefined,
         dateFrom: filters.dateFrom || undefined,
@@ -277,6 +281,7 @@ const GiftList: React.FC = () => {
         // Convert string filters to proper types for API
         const apiFilters = {
           listId: filters.listId || undefined,
+          listType: filters.listType || undefined,
           giftType: filters.giftType || undefined,
           giftStatus: filters.giftStatus || undefined,
           dateFrom: filters.dateFrom || undefined,
@@ -402,6 +407,7 @@ const GiftList: React.FC = () => {
   const updateUrlParams = (newFilters: Filters, newSortColumn?: string | null, newSortDirection?: SortDirection) => {
     const params = new URLSearchParams();
     if (newFilters.listId) params.set('listId', newFilters.listId);
+    if (newFilters.listType) params.set('listType', newFilters.listType);
     if (newFilters.giftType) params.set('giftType', newFilters.giftType);
     if (newFilters.giftStatus) params.set('giftStatus', newFilters.giftStatus);
     if (newFilters.dateFrom) params.set('dateFrom', newFilters.dateFrom);
@@ -431,6 +437,7 @@ const GiftList: React.FC = () => {
   const clearFilters = (): void => {
     const newFilters: Filters = {
       listId: '',
+      listType: '',
       giftType: '',
       giftStatus: '',
       dateFrom: '',
@@ -488,9 +495,12 @@ const GiftList: React.FC = () => {
     try {
       console.log(`📋 Loading list name for ${listId} from cached lists`);
 
+      // Use the list type from filters, fallback to 'Gift' if not available
+      const listType = filters.listType || 'Gift';
+
       // Get all lists and find the one with matching ID
       const response = await authService.executeQuery(
-        () => authService.getLists('Gift'), // Get all gift lists to find the list name
+        () => authService.getLists(listType), // Get lists of the specified type to find the list name
         'fetching lists to find list name'
       );
 
@@ -506,7 +516,7 @@ const GiftList: React.FC = () => {
           }));
           console.log(`✅ Found list name for ${listId}: ${list.name}`);
         } else {
-          console.warn(`⚠️ List ${listId} not found in cached lists`);
+          console.warn(`⚠️ List ${listId} not found in cached lists of type ${listType}`);
           setCachedLists(prev => ({
             ...prev,
             [listId]: {
@@ -526,7 +536,7 @@ const GiftList: React.FC = () => {
         }
       }));
     }
-  }, [cachedLists]);
+  }, [cachedLists, filters.listType]);
 
   // Load list name when list filter is set
   useEffect(() => {
