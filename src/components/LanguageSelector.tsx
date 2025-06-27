@@ -46,8 +46,8 @@ const LanguageSelector: React.FC = () => {
   }, [i18n]);
 
   const containerStyle: React.CSSProperties = {
-    position: 'fixed',
-    top: '20px',
+    position: 'absolute',
+    top: '120px', // Align with tab list
     right: '20px',
     zIndex: 1000,
     display: 'flex',
