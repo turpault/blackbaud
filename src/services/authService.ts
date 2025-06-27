@@ -73,18 +73,22 @@ class AuthService {
                           error.response?.data?.retryAfter ||
                           error.retryAfter;
         
+        // Calculate exponential backoff delay
+        const backoffDelay = baseDelayMs * Math.pow(2, attempt);
+        const jitter = Math.random() * 0.1 * backoffDelay; // 10% jitter
+        const backoffTotal = backoffDelay + jitter;
+        
         let totalDelay: number;
         
         if (retryAfter) {
-          // Use the server's retry-after value (convert to milliseconds)
+          // Use the maximum of server retry-after and exponential backoff
           const retrySeconds = parseInt(retryAfter);
-          totalDelay = retrySeconds * 1000;
-          console.warn(`429 Rate Limited, using server retry-after: ${retrySeconds}s (attempt ${attempt + 1}/${maxRetries + 1})`);
+          const serverDelay = retrySeconds * 1000;
+          totalDelay = Math.max(serverDelay, backoffTotal);
+          console.warn(`429 Rate Limited, using max(server: ${retrySeconds}s, backoff: ${Math.round(backoffTotal)}ms) = ${Math.round(totalDelay)}ms (attempt ${attempt + 1}/${maxRetries + 1})`);
         } else {
           // Fall back to exponential backoff if no retry-after provided
-          const backoffDelay = baseDelayMs * Math.pow(2, attempt);
-          const jitter = Math.random() * 0.1 * backoffDelay; // 10% jitter
-          totalDelay = backoffDelay + jitter;
+          totalDelay = backoffTotal;
           console.warn(`429 Rate Limited, using exponential backoff: ${Math.round(totalDelay)}ms (attempt ${attempt + 1}/${maxRetries + 1})`);
         }
         
