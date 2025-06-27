@@ -26,6 +26,8 @@ i18n
     resources,
     fallbackLng: 'en',
     debug: true,
+    lng: 'en', // Force default language
+    supportedLngs: ['en', 'fr', 'fr-CA'],
 
     interpolation: {
       escapeValue: false, // React already does escaping
@@ -34,6 +36,8 @@ i18n
     detection: {
       order: ['localStorage', 'navigator', 'htmlTag'],
       caches: ['localStorage'],
+      lookupLocalStorage: 'i18nextLng',
+      lookupSessionStorage: 'i18nextLng',
     },
   });
 

@@ -13,8 +13,26 @@ const LanguageSelector: React.FC = () => {
   const handleLanguageChange = (languageCode: string) => {
     console.log('LanguageSelector: Changing language to:', languageCode);
     console.log('LanguageSelector: Current language before change:', i18n.language);
-    i18n.changeLanguage(languageCode);
-    console.log('LanguageSelector: Language change requested');
+
+    // Force the language change
+    i18n.changeLanguage(languageCode).then(() => {
+      console.log('LanguageSelector: Language change completed successfully');
+      console.log('LanguageSelector: New language:', i18n.language);
+
+      // Force a re-render by updating localStorage
+      localStorage.setItem('i18nextLng', languageCode);
+
+      // Show a brief visual feedback
+      const button = document.querySelector(`[data-lang="${languageCode}"]`) as HTMLElement;
+      if (button) {
+        button.style.transform = 'scale(1.1)';
+        setTimeout(() => {
+          button.style.transform = 'scale(1.05)';
+        }, 200);
+      }
+    }).catch((error) => {
+      console.error('LanguageSelector: Language change failed:', error);
+    });
   };
 
   // Monitor language changes
@@ -74,6 +92,7 @@ const LanguageSelector: React.FC = () => {
       {languages.map((language) => (
         <button
           key={language.code}
+          data-lang={language.code}
           onClick={() => handleLanguageChange(language.code)}
           style={i18n.language === language.code ? activeButtonStyle : buttonStyle}
           title={`Switch to ${language.name}`}
@@ -82,6 +101,23 @@ const LanguageSelector: React.FC = () => {
           <span>{language.code.toUpperCase()}</span>
         </button>
       ))}
+      {/* Debug info */}
+      <div style={{
+        position: 'absolute',
+        top: '50px',
+        right: '0',
+        backgroundColor: 'rgba(0,0,0,0.8)',
+        color: 'white',
+        padding: '5px',
+        fontSize: '10px',
+        borderRadius: '4px',
+        display: 'none' // Set to 'block' for debugging
+      }}>
+        Current: {i18n.language}<br />
+        Initialized: {i18n.isInitialized ? 'Yes' : 'No'}<br />
+        Available: {i18n.languages?.join(', ')}<br />
+        Test: {i18n.t('common.loading')}
+      </div>
     </div>
   );
 };
