@@ -5,7 +5,6 @@ import authService from "../services/authService";
 import type { ConstituentInfo } from "../types/auth";
 import QueueManager from "./QueueManager";
 import LazyLoadingStats from "./LazyLoadingStats";
-import PdfDownloadStatus from "./PdfDownloadStatus";
 import GiftCard from "./GiftCard";
 
 // Define types inline since we removed the auth types file
@@ -132,7 +131,7 @@ const GiftList: React.FC = () => {
 
     try {
       const response: GiftListResponse = await authService.executeQuery(
-        () => authService.getGifts(1000, filters.listId || undefined),
+        () => authService.getGifts(1000, 0, filters.listId || undefined),
         'fetching gifts',
         (errorMsg) => setError(errorMsg)
       );
@@ -977,9 +976,6 @@ const GiftList: React.FC = () => {
         pendingPdfs={pdfStats.pendingPdfs}
         showDetails={true}
       />
-
-      {/* PDF Download Status */}
-      <PdfDownloadStatus showDetails={true} />
 
       {/* CSS Styles for virtual scrolling */}
       <style>{`

@@ -275,11 +275,4 @@ export const attachmentQueue = new ConcurrentQueue({
   enableStats: true
 });
 
-export const pdfQueue = new ConcurrentQueue({
-  maxConcurrency: 1,
-  retryDelay: 3000,
-  maxRetries: 2,
-  enableStats: true
-});
-
 export default ConcurrentQueue;
