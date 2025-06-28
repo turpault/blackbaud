@@ -31,10 +31,10 @@ const ConstituentInfo: React.FC<ConstituentInfoProps> = React.memo(({ constituen
     };
 
     loadConstituent();
-  }, [constituentId, isScrolling]); // Add isScrolling to dependencies
+  }, [constituentId, isScrolling, constituent]); // Add isScrolling to dependencies
 
   useEffect(() => {
-    if (!constituentId || constituent && constituent.id !== constituentId) {
+    if (!constituentId || (constituent && constituent.id !== constituentId)) {
       setConstituent(null);
     }
   }, [constituentId, constituent]);
