@@ -93,7 +93,6 @@ const GiftList: React.FC = () => {
   const [gifts, setGifts] = useState<Gift[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
-  const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
   const [sortColumn, setSortColumn] = useState<string | null>(searchParams.get('sortColumn'));
   const [sortDirection, setSortDirection] = useState<SortDirection>(searchParams.get('sortDirection') as SortDirection);
   const [totalCount, setTotalCount] = useState<number>(0);
@@ -129,9 +128,6 @@ const GiftList: React.FC = () => {
 
   // Filter visibility state
   const [showFilters, setShowFilters] = useState<boolean>(false);
-
-  // Focus state for keyboard navigation
-  const [isFocused, setIsFocused] = useState<boolean>(false);
 
   // Scroll state tracking to prevent fetching during scroll
   const [isScrolling, setIsScrolling] = useState<boolean>(false);
@@ -296,19 +292,6 @@ const GiftList: React.FC = () => {
   useEffect(() => {
     fetchGifts();
   }, [fetchGifts]);
-
-  // Memoized handlers to prevent unnecessary re-renders
-  const memoizedToggleRowExpansion = useCallback((giftId: string): void => {
-    setExpandedRows(prev => {
-      const newSet = new Set(prev);
-      if (newSet.has(giftId)) {
-        newSet.delete(giftId);
-      } else {
-        newSet.add(giftId);
-      }
-      return newSet;
-    });
-  }, []);
 
   // Placeholder functions for required props
   const handlePdfLoaded = useCallback((pdfId: string): void => {
@@ -788,21 +771,6 @@ const GiftList: React.FC = () => {
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
   }, [calculateGridLayout]);
-
-  // Set focus on scroll container when gifts are loaded
-  useEffect(() => {
-    if (!loading && gifts.length > 0 && scrollContainerRef.current) {
-      // Small delay to ensure the DOM is fully rendered
-      const timer = setTimeout(() => {
-        if (scrollContainerRef.current) {
-          scrollContainerRef.current.focus();
-          console.log('🎯 Focus set on gift list scroll container');
-        }
-      }, 100);
-
-      return () => clearTimeout(timer);
-    }
-  }, [loading, gifts.length]);
 
   // Handle refresh with cache clearing
   const handleRefresh = useCallback(async (): Promise<void> => {
@@ -1375,15 +1343,11 @@ const GiftList: React.FC = () => {
               ref={scrollContainerRef}
               tabIndex={0}
               onKeyDown={handleKeyDown}
-              onFocus={() => setIsFocused(true)}
-              onBlur={() => setIsFocused(false)}
               style={{
                 height: "100%",
                 overflow: "auto",
                 position: "relative",
                 outline: "none",
-                border: isFocused ? "2px solid #007bff" : "none",
-                borderRadius: isFocused ? "6px" : "0",
                 transition: "border-color 0.2s ease"
               }}
             >
@@ -1413,8 +1377,6 @@ const GiftList: React.FC = () => {
                       <GiftCard
                         key={gift.id}
                         gift={gift}
-                        expandedRows={expandedRows}
-                        onToggleExpansion={memoizedToggleRowExpansion}
                         onHandlePdfLoaded={handlePdfLoaded}
                         onHandleImageError={handleImageError}
                         formatCurrency={formatCurrency}
