@@ -194,73 +194,118 @@ const AttachmentsSection: React.FC<AttachmentsSectionProps> = React.memo(({
           <div style={{
             display: "flex",
             flexDirection: "column",
-            gap: "6px"
+            gap: "8px"
           }}>
             {attachments?.map((attachment, index) => (
               <div
                 key={attachment.id || index}
                 style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "8px",
-                  padding: "6px 8px",
-                  backgroundColor: "#f8f9fa",
-                  borderRadius: "6px",
                   border: "1px solid #e9ecef",
+                  borderRadius: "6px",
+                  padding: "8px",
+                  backgroundColor: "#f8f9fa",
                   fontSize: "12px"
                 }}
               >
-                {/* File type icon */}
+                {/* File header with type icon and name */}
                 <div style={{
-                  width: "16px",
-                  height: "16px",
                   display: "flex",
                   alignItems: "center",
-                  justifyContent: "center",
-                  fontSize: "10px",
-                  fontWeight: "bold",
-                  borderRadius: "3px",
-                  color: "white"
+                  gap: "6px",
+                  marginBottom: "6px"
                 }}>
-                  {isPdfFile(attachment) ? (
-                    <span style={{ backgroundColor: "#dc3545" }}>PDF</span>
-                  ) : isImageFile(attachment) ? (
-                    <span style={{ backgroundColor: "#28a745" }}>IMG</span>
-                  ) : (
-                    <span style={{ backgroundColor: "#6c757d" }}>FILE</span>
+                  {/* File type icon */}
+                  <div style={{
+                    width: "14px",
+                    height: "14px",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    fontSize: "8px",
+                    fontWeight: "bold",
+                    borderRadius: "2px",
+                    color: "white"
+                  }}>
+                    {isPdfFile(attachment) ? (
+                      <span style={{ backgroundColor: "#dc3545" }}>PDF</span>
+                    ) : isImageFile(attachment) ? (
+                      <span style={{ backgroundColor: "#28a745" }}>IMG</span>
+                    ) : (
+                      <span style={{ backgroundColor: "#6c757d" }}>FILE</span>
+                    )}
+                  </div>
+
+                  {/* File name */}
+                  <span
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleDownload(attachment);
+                    }}
+                    style={{
+                      flex: 1,
+                      color: "#007bff",
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                      whiteSpace: "nowrap",
+                      cursor: "pointer",
+                      textDecoration: "underline",
+                      fontWeight: "500",
+                      fontSize: "11px"
+                    }}
+                    title={`Download ${attachment.name || attachment.file_name || 'attachment'}`}
+                  >
+                    {attachment.name || attachment.file_name || "Unnamed Attachment"}
+                  </span>
+
+                  {/* File size */}
+                  {attachment.file_size && (
+                    <span style={{
+                      color: "#6c757d",
+                      fontSize: "10px",
+                      whiteSpace: "nowrap"
+                    }}>
+                      {formatFileSize(attachment.file_size)}
+                    </span>
                   )}
                 </div>
 
-                {/* File name */}
-                <span
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleDownload(attachment);
-                  }}
-                  style={{
-                    flex: 1,
-                    color: "#007bff",
-                    overflow: "hidden",
-                    textOverflow: "ellipsis",
-                    whiteSpace: "nowrap",
-                    cursor: "pointer",
-                    textDecoration: "underline",
-                    fontWeight: "500"
-                  }}
-                  title={`Download ${attachment.name || attachment.file_name || 'attachment'}`}
-                >
-                  {attachment.name || attachment.file_name || "Unnamed Attachment"}
-                </span>
+                {/* Image preview for image files */}
+                {isImageFile(attachment) && !imageErrors.has(attachment.id || '') && (
+                  <div style={{ marginBottom: "4px" }}>
+                    <img
+                      src={attachment.url}
+                      alt={attachment.name || "Attachment"}
+                      loading="lazy"
+                      style={{
+                        width: "100%",
+                        height: "80px",
+                        objectFit: "cover",
+                        borderRadius: "4px",
+                        border: "1px solid #dee2e6"
+                      }}
+                      onError={() => handleImageError(attachment.id || '')}
+                    />
+                  </div>
+                )}
 
-                {/* File size */}
-                {attachment.file_size && (
-                  <span style={{
-                    color: "#6c757d",
-                    fontSize: "11px",
-                    whiteSpace: "nowrap"
-                  }}>
-                    {formatFileSize(attachment.file_size)}
-                  </span>
+                {/* PDF thumbnail for PDF files */}
+                {isPdfFile(attachment) && (
+                  <div style={{ marginBottom: "4px" }}>
+                    <img
+                      src={getPdfImageUrl(attachment)}
+                      alt={`PDF Preview: ${attachment.name || attachment.file_name || "PDF Document"}`}
+                      loading="lazy"
+                      style={{
+                        width: "100%",
+                        height: "80px",
+                        objectFit: "contain",
+                        borderRadius: "4px",
+                        border: "1px solid #dee2e6",
+                        backgroundColor: "#ffffff"
+                      }}
+                      onError={() => handleImageError(attachment.id || '')}
+                    />
+                  </div>
                 )}
               </div>
             ))}
