@@ -278,7 +278,7 @@ const AttachmentsSection: React.FC<AttachmentsSectionProps> = React.memo(({
                       loading="lazy"
                       style={{
                         width: "100%",
-                        height: "80px",
+                        height: "475px",
                         objectFit: "cover",
                         borderRadius: "4px",
                         border: "1px solid #dee2e6"
@@ -297,7 +297,7 @@ const AttachmentsSection: React.FC<AttachmentsSectionProps> = React.memo(({
                       loading="lazy"
                       style={{
                         width: "100%",
-                        height: "80px",
+                        height: "475px",
                         objectFit: "contain",
                         borderRadius: "4px",
                         border: "1px solid #dee2e6",
