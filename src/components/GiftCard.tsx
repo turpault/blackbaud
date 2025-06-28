@@ -162,7 +162,7 @@ const GiftCard: React.FC<GiftCardProps> = React.memo(({
                 fontSize: "11px",
                 fontWeight: "bold"
               }}>
-                👁️
+                ▶
               </span>
             </div>
           </div>
