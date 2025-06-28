@@ -204,7 +204,7 @@ const GiftCard: React.FC<GiftCardProps> = React.memo(({
           <div onClick={(e) => e.stopPropagation()}>
             <AttachmentsSection
               giftId={gift.id}
-              isExpanded={false}
+              isExpanded={true}
               onHandlePdfLoaded={onHandlePdfLoaded}
               onHandleImageError={onHandleImageError}
               zoomLevel={zoomLevel}
